@@ -58,7 +58,7 @@
     <module>aws-android-sdk-polly</module>
     <module>aws-android-sdk-pinpoint</module>
     <module>aws-android-sdk-rekognition</module>
-    <module>aws-android-sdk-s3</module>
+    
     <module>aws-android-sdk-sdb</module>
     <module>aws-android-sdk-ses</module>
     <module>aws-android-sdk-sns</module>
@@ -68,6 +68,7 @@
     <module>aws-java-sdk-auth-core</module>
     <module>aws-java-sdk-mobile-client</module>
     <module>aws-java-sdk-kms</module>
+    <module>aws-java-sdk-s3</module>
   </modules>
 
   <developers>

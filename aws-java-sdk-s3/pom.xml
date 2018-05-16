@@ -5,13 +5,13 @@
   <groupId>com.amazonaws</groupId>
   <artifactId>aws-android-sdk-s3</artifactId>
   <packaging>jar</packaging>
-  <name>AWS SDK for Android - Amazon S3</name>
-  <description>The AWS Android SDK for Amazon S3 module holds the client classes that are used for communicating with Amazon Simple Storage Service</description>
+  <name>AWS SDK for Java - Amazon S3</name>
+  <description>The AWS Java SDK for Amazon S3 module holds the client classes that are used for communicating with Amazon Simple Storage Service</description>
   <url>http://aws.amazon.com/sdkforandroid</url>
 
   <parent>
     <groupId>com.amazonaws</groupId>
-    <artifactId>aws-android-sdk-pom</artifactId>
+    <artifactId>aws-java-sdk-pom</artifactId>
     <version>2.6.19</version>
   </parent>
 
