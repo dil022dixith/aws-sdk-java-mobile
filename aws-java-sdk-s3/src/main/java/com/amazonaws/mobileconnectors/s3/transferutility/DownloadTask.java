@@ -72,18 +72,18 @@ class DownloadTask implements Callable<Boolean> {
     @Override
     public Boolean call() throws Exception {
         if (!networkInfo.isNetworkConnected()) {
-            updater.updateState(download.id, TransferState.WAITING_FOR_NETWORK);
+            updater.updateState(download.getRecord().getId(), TransferState.WAITING_FOR_NETWORK);
             return false;
         }
-        updater.updateState(download.id, TransferState.IN_PROGRESS);
+        updater.updateState(download.getRecord().getId(), TransferState.IN_PROGRESS);
 
-        final GetObjectRequest getObjectRequest = new GetObjectRequest(download.bucketName,
-                download.key);
+        final GetObjectRequest getObjectRequest = new GetObjectRequest(download.getRecord().getBucketName(),
+                download.getRecord().getKey());
         TransferUtility.appendTransferServiceUserAgentString(getObjectRequest);
-        final File file = new File(download.file);
+        final File file = new File(download.getRecord().getFile());
         final long bytesCurrent = file.length();
         if (bytesCurrent > 0) {
-            LOGGER.debug(String.format("Resume transfer %d from %d bytes", download.id,
+            LOGGER.debug(String.format("Resume transfer %d from %d bytes", download.getRecord().getId(),
                     bytesCurrent));
             /*
              * Setting the last byte position to －1 means downloading the object
@@ -91,22 +91,22 @@ class DownloadTask implements Callable<Boolean> {
              */
             getObjectRequest.setRange(bytesCurrent, -1);
         }
-        getObjectRequest.setGeneralProgressListener(updater.newProgressListener(download.id));
+        getObjectRequest.setGeneralProgressListener(updater.newProgressListener(download.getRecord().getId()));
 
         try {
             final S3Object object = s3.getObject(getObjectRequest);
             if (object == null) {
-                updater.throwError(download.id, new IllegalStateException(
+                updater.throwError(download.getRecord().getId(), new IllegalStateException(
                         "AmazonS3.getObject returns null"));
-                updater.updateState(download.id, TransferState.FAILED);
+                updater.updateState(download.getRecord().getId(), TransferState.FAILED);
                 return false;
             }
 
             final long bytesTotal = object.getObjectMetadata().getInstanceLength();
-            updater.updateProgress(download.id, bytesCurrent, bytesTotal);
+            updater.updateProgress(download.getRecord().getId(), bytesCurrent, bytesTotal);
             saveToFile(object.getObjectContent(), file);
-            updater.updateProgress(download.id, bytesTotal, bytesTotal);
-            updater.updateState(download.id, TransferState.COMPLETED);
+            updater.updateProgress(download.getRecord().getId(), bytesTotal, bytesTotal);
+            updater.updateState(download.getRecord().getId(), TransferState.COMPLETED);
             return true;
         } catch (final Exception e) {
             if (RetryUtils.isInterrupted(e)) {
@@ -114,16 +114,16 @@ class DownloadTask implements Callable<Boolean> {
                  * thread is interrupted by user. don't update the state as it's
                  * set by caller who interrupted
                  */
-                LOGGER.debug("Transfer " + download.id + " is interrupted by user");
+                LOGGER.debug("Transfer " + download.getRecord().getId() + " is interrupted by user");
             } else if (e.getCause() != null &&
                     (e.getCause() instanceof IOException || e.getCause() instanceof AmazonClientException)
                     && !networkInfo.isNetworkConnected()) {
-                LOGGER.debug("Transfer " + download.id + " waits for network");
-                updater.updateState(download.id, TransferState.WAITING_FOR_NETWORK);
+                LOGGER.debug("Transfer " + download.getRecord().getId() + " waits for network");
+                updater.updateState(download.getRecord().getId(), TransferState.WAITING_FOR_NETWORK);
             } else {
-                LOGGER.debug("Failed to download: " + download.id + " due to " + e.getMessage());
-                updater.throwError(download.id, e);
-                updater.updateState(download.id, TransferState.FAILED);
+                LOGGER.debug("Failed to download: " + download.getRecord().getId() + " due to " + e.getMessage());
+                updater.throwError(download.getRecord().getId(), e);
+                updater.updateState(download.getRecord().getId(), TransferState.FAILED);
             }
         }
         return false;

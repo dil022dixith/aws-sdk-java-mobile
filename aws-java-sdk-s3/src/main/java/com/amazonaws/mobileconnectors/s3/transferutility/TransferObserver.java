@@ -15,8 +15,6 @@
 
 package com.amazonaws.mobileconnectors.s3.transferutility;
 
-import android.database.Cursor;
-
 import java.io.File;
 
 /**
@@ -49,7 +47,6 @@ import java.io.File;
 public class TransferObserver {
 
     private final int id;
-    private final TransferDBUtil dbUtil;
 
     private String bucket;
     private String key;
@@ -71,9 +68,8 @@ public class TransferObserver {
      * @param key key of the S3 object
      * @param file a file associated with this transfer
      */
-    TransferObserver(int id, TransferDBUtil dbUtil, String bucket, String key, File file) {
+    TransferObserver(int id, String bucket, String key, File file) {
         this.id = id;
-        this.dbUtil = dbUtil;
         this.bucket = bucket;
         this.key = key;
         filePath = file.getAbsolutePath();
@@ -92,9 +88,9 @@ public class TransferObserver {
      * @param file a file associated with this transfer
      * @param listener the listener for the transfer
      */
-    TransferObserver(int id, TransferDBUtil dbUtil, String bucket, String key, File file,
+    TransferObserver(int id, String bucket, String key, File file,
             TransferListener listener) {
-        this(id, dbUtil, bucket, key, file);
+        this(id, bucket, key, file);
         this.setTransferListener(listener);
     }
 
@@ -105,9 +101,8 @@ public class TransferObserver {
      * @param id The transfer id of the transfer to be observed.
      * @param dbUtil an instance of database utility
      */
-    TransferObserver(int id, TransferDBUtil dbUtil) {
+    TransferObserver(int id) {
         this.id = id;
-        this.dbUtil = dbUtil;
     }
 
     /**
@@ -115,15 +110,10 @@ public class TransferObserver {
      * TransferListener is set, then there's no need to call this method.
      */
     public void refresh() {
-        Cursor c = null;
-        try {
-            c = dbUtil.queryTransferById(id);
-            if (c.moveToFirst()) {
-                updateFromDB(c);
-            }
-        } finally {
-            if (c != null) {
-                c.close();
+        for (Record record : Service.getInstance().getRecords()) {
+            if (record.getId() == id) {
+                updateFromDB(record);
+                break;
             }
         }
     }
@@ -131,17 +121,15 @@ public class TransferObserver {
     /**
      * Update transfer state from the given cursor.
      *
-     * @param c a cursor to read the state of the transfer from
+     * @param r a record to read the state of the transfer from
      */
-    protected void updateFromDB(Cursor c) {
-        bucket = c.getString(c.getColumnIndexOrThrow(TransferTable.COLUMN_BUCKET_NAME));
-        key = c.getString(c.getColumnIndexOrThrow(TransferTable.COLUMN_KEY));
-        bytesTotal = c.getLong(c.getColumnIndexOrThrow(TransferTable.COLUMN_BYTES_TOTAL));
-        bytesTransferred = c.getLong(c
-                .getColumnIndexOrThrow(TransferTable.COLUMN_BYTES_CURRENT));
-        transferState = TransferState.getState(c.getString(c
-                .getColumnIndexOrThrow(TransferTable.COLUMN_STATE)));
-        filePath = c.getString(c.getColumnIndexOrThrow(TransferTable.COLUMN_FILE));
+    protected void updateFromDB(Record r) {
+        bucket = r.getBucketName();
+        key = r.getKey();
+        bytesTotal = r.getBytesTotal();
+        bytesTransferred = r.getBytesCurrent();
+        transferState = r.getState();
+        filePath = r.getFile();
     }
 
     /**

@@ -15,23 +15,20 @@
 
 package com.amazonaws.mobileconnectors.s3.transferutility;
 
-import android.database.Cursor;
-
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferService.NetworkInfoReceiver;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.AbortMultipartUploadRequest;
-import com.amazonaws.util.json.JsonUtils;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import java.io.File;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.logging.Level;
 
 /**
  * TransferRecord is used to store all the information of a transfer and
@@ -41,45 +38,7 @@ import java.util.concurrent.TimeoutException;
 class TransferRecord {
     private static final Log LOGGER = LogFactory.getLog(TransferRecord.class);
 
-    public int id;
-    public int mainUploadId;
-    public int isRequesterPays;
-    public int isMultipart;
-    public int isLastPart;
-    public int isEncrypted;
-    public int partNumber;
-    public long bytesTotal;
-    public long bytesCurrent;
-    public long speed;
-    public long rangeStart;
-    public long rangeLast;
-    public long fileOffset;
-    public TransferType type;
-    public TransferState state;
-    public String bucketName;
-    public String key;
-    public String versionId;
-    public String file;
-    public String multipartId;
-    public String eTag;
-    public String headerContentType;
-    public String headerContentLanguage;
-    public String headerContentDisposition;
-    public String headerContentEncoding;
-    public String headerCacheControl;
-    public String headerExpire;
-
-    /**
-     * The following were added in 2.2.6 to support object metdata
-     */
-    public Map<String, String> userMetadata;
-    public String expirationTimeRuleId;
-    // This is a long representing a date, however it may be null
-    public String httpExpires;
-    public String sseAlgorithm;
-    public String sseKMSKey;
-    public String md5;
-    public String cannedAcl;
+    private Record record;
 
     private Future<?> submittedTask;
 
@@ -89,64 +48,16 @@ class TransferRecord {
      *
      * @param id The id of a transfer.
      */
-    public TransferRecord(int id) {
-        this.id = id;
+    public TransferRecord() {
     }
 
     /**
      * Updates all the fields from database using the given Cursor.
      *
-     * @param c A Cursor pointing to a transfer record.
+     * @param record A Record pointing to a transfer record.
      */
-    public void updateFromDB(Cursor c) {
-        this.id = c.getInt(c.getColumnIndexOrThrow(TransferTable.COLUMN_ID));
-        this.mainUploadId = c.getInt(c.getColumnIndexOrThrow(TransferTable.COLUMN_MAIN_UPLOAD_ID));
-        this.type = TransferType.getType(c.getString(c
-                .getColumnIndexOrThrow(TransferTable.COLUMN_TYPE)));
-        this.state = TransferState.getState(c.getString(c
-                .getColumnIndexOrThrow(TransferTable.COLUMN_STATE)));
-        this.bucketName = c.getString(c.getColumnIndexOrThrow(TransferTable.COLUMN_BUCKET_NAME));
-        this.key = c.getString(c.getColumnIndexOrThrow(TransferTable.COLUMN_KEY));
-        this.versionId = c.getString(c.getColumnIndexOrThrow(TransferTable.COLUMN_VERSION_ID));
-        this.bytesTotal = c.getLong(c.getColumnIndexOrThrow(TransferTable.COLUMN_BYTES_TOTAL));
-        this.bytesCurrent = c.getLong(c.getColumnIndexOrThrow(TransferTable.COLUMN_BYTES_CURRENT));
-        this.speed = c.getLong(c.getColumnIndexOrThrow(TransferTable.COLUMN_SPEED));
-        this.isRequesterPays = c.getInt(c
-                .getColumnIndexOrThrow(TransferTable.COLUMN_IS_REQUESTER_PAYS));
-        this.isMultipart = c.getInt(c.getColumnIndexOrThrow(TransferTable.COLUMN_IS_MULTIPART));
-        this.isLastPart = c.getInt(c.getColumnIndexOrThrow(TransferTable.COLUMN_IS_LAST_PART));
-        this.isEncrypted = c.getInt(c.getColumnIndexOrThrow(TransferTable.COLUMN_IS_ENCRYPTED));
-        this.partNumber = c.getInt(c.getColumnIndexOrThrow(TransferTable.COLUMN_PART_NUM));
-        this.eTag = c.getString(c.getColumnIndexOrThrow(TransferTable.COLUMN_ETAG));
-        this.file = c.getString(c.getColumnIndexOrThrow(TransferTable.COLUMN_FILE));
-        this.multipartId = c.getString(c.getColumnIndexOrThrow(TransferTable.COLUMN_MULTIPART_ID));
-        this.rangeStart = c
-                .getLong(c.getColumnIndexOrThrow(TransferTable.COLUMN_DATA_RANGE_START));
-        this.rangeLast = c.getLong(c.getColumnIndexOrThrow(TransferTable.COLUMN_DATA_RANGE_LAST));
-        this.fileOffset = c.getLong(c.getColumnIndexOrThrow(TransferTable.COLUMN_FILE_OFFSET));
-        this.headerContentType = c.getString(c
-                .getColumnIndexOrThrow(TransferTable.COLUMN_HEADER_CONTENT_TYPE));
-        this.headerContentLanguage = c.getString(c
-                .getColumnIndexOrThrow(TransferTable.COLUMN_HEADER_CONTENT_LANGUAGE));
-        this.headerContentDisposition = c.getString(c
-                .getColumnIndexOrThrow(TransferTable.COLUMN_HEADER_CONTENT_DISPOSITION));
-        this.headerContentEncoding = c.getString(c
-                .getColumnIndexOrThrow(TransferTable.COLUMN_HEADER_CONTENT_ENCODING));
-        this.headerCacheControl = c.getString(c
-                .getColumnIndexOrThrow(TransferTable.COLUMN_HEADER_CACHE_CONTROL));
-        this.headerExpire = c.getString(c
-                .getColumnIndexOrThrow(TransferTable.COLUMN_HEADER_EXPIRE));
-        this.userMetadata = JsonUtils.jsonToMap(c.getString(c
-                .getColumnIndexOrThrow(TransferTable.COLUMN_USER_METADATA)));
-        this.expirationTimeRuleId = c.getString(c
-                .getColumnIndexOrThrow(TransferTable.COLUMN_EXPIRATION_TIME_RULE_ID));
-        this.httpExpires = c.getString(c
-                .getColumnIndexOrThrow(TransferTable.COLUMN_HTTP_EXPIRES_DATE));
-        this.sseAlgorithm = c
-                .getString(c.getColumnIndexOrThrow(TransferTable.COLUMN_SSE_ALGORITHM));
-        this.sseKMSKey = c.getString(c.getColumnIndexOrThrow(TransferTable.COLUMN_SSE_KMS_KEY));
-        this.md5 = c.getString(c.getColumnIndexOrThrow(TransferTable.COLUMN_CONTENT_MD5));
-        this.cannedAcl = c.getString(c.getColumnIndexOrThrow(TransferTable.COLUMN_CANNED_ACL));
+    public void updateFromDB(Record record) {
+        this.record = record;
     }
 
     /**
@@ -162,10 +73,12 @@ class TransferRecord {
     public boolean start(AmazonS3 s3, TransferDBUtil dbUtil, TransferStatusUpdater updater,
             NetworkInfoReceiver networkInfo) {
         if (!isRunning() && checkIsReadyToRun()) {
-            if (type.equals(TransferType.DOWNLOAD)) {
+            if (TransferType.DOWNLOAD.equals(record.getType())) {
+                LOGGER.info("Task Download ");
                 submittedTask = TransferThreadPool
                         .submitTask(new DownloadTask(this, s3, updater, networkInfo));
             } else {
+                LOGGER.info("Task Upload ");
                 submittedTask = TransferThreadPool
                         .submitTask(new UploadTask(this, s3, dbUtil, updater, networkInfo));
             }
@@ -183,8 +96,8 @@ class TransferRecord {
      *         otherwise
      */
     public boolean pause(AmazonS3 s3, TransferStatusUpdater updater) {
-        if (!isFinalState(state) && !TransferState.PAUSED.equals(state)) {
-            updater.updateState(id, TransferState.PAUSED);
+        if (!isFinalState(record.getState()) && !TransferState.PAUSED.equals(record.getState())) {
+            updater.updateState(record.getId(), TransferState.PAUSED);
             if (isRunning()) {
                 submittedTask.cancel(true);
             }
@@ -202,28 +115,28 @@ class TransferRecord {
      *         false otherwise
      */
     public boolean cancel(final AmazonS3 s3, final TransferStatusUpdater updater) {
-        if (!isFinalState(state)) {
-            updater.updateState(id, TransferState.CANCELED);
+        if (!isFinalState(record.getState())) {
+            updater.updateState(record.getId(), TransferState.CANCELED);
             if (isRunning()) {
                 submittedTask.cancel(true);
             }
             // additional cleanups
-            if (isMultipart == 1) {
+            if (record.getIsMultipart() == 1) {
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
                         try {
-                            s3.abortMultipartUpload(new AbortMultipartUploadRequest(bucketName,
-                                    key, multipartId));
-                            LOGGER.debug("Successfully clean up multipart upload: " + id);
+                            s3.abortMultipartUpload(new AbortMultipartUploadRequest(record.getBucketName(),
+                                    record.getKey(), record.getMultipartId()));
+                            LOGGER.debug("Successfully clean up multipart upload: " + record.getId());
                         } catch (final AmazonClientException e) {
-                            LOGGER.debug("Failed to abort multiplart upload: " + id, e);
+                            LOGGER.debug("Failed to abort multiplart upload: " + record.getId(), e);
                         }
                     }
                 }).start();
-            } else if (TransferType.DOWNLOAD.equals(type)) {
+            } else if (TransferType.DOWNLOAD.equals(record.getType())) {
                 // remove partially download file
-                new File(file).delete();
+                new File(record.getFile()).delete();
             }
             return true;
         }
@@ -265,29 +178,33 @@ class TransferRecord {
     }
 
     private boolean checkIsReadyToRun() {
-        return partNumber == 0 && !TransferState.COMPLETED.equals(state);
+        return record.getPartNumber() == 0 && !TransferState.COMPLETED.equals(record.getState());
     }
 
+    public Record getRecord() {
+        return record;
+    }
+    
     @Override
     public String toString() {
         final StringBuilder sb = new StringBuilder();
         sb.append("[")
-                .append("id:").append(id).append(",")
-                .append("bucketName:").append(bucketName).append(",")
-                .append("key:").append(key).append(",")
-                .append("file:").append(file).append(",")
-                .append("type:").append(type).append(",")
-                .append("bytesTotal:").append(bytesTotal).append(",")
-                .append("bytesCurrent:").append(bytesCurrent).append(",")
-                .append("fileOffset:").append(fileOffset).append(",")
-                .append("state:").append(state).append(",")
-                .append("cannedAcl:").append(cannedAcl).append(",")
-                .append("mainUploadId:").append(mainUploadId).append(",")
-                .append("isMultipart:").append(isMultipart).append(",")
-                .append("isLastPart:").append(isLastPart).append(",")
-                .append("partNumber:").append(partNumber).append(",")
-                .append("multipartId:").append(multipartId).append(",")
-                .append("eTag:").append(eTag)
+                .append("id:").append(record.getId()).append(",")
+                .append("bucketName:").append(record.getBucketName()).append(",")
+                .append("key:").append(record.getKey()).append(",")
+                .append("file:").append(record.getFile()).append(",")
+                .append("type:").append(record.getType()).append(",")
+                .append("bytesTotal:").append(record.getBytesTotal()).append(",")
+                .append("bytesCurrent:").append(record.getBytesCurrent()).append(",")
+                .append("fileOffset:").append(record.getFileOffset()).append(",")
+                .append("state:").append(record.getState()).append(",")
+                .append("cannedAcl:").append(record.getCannedAcl()).append(",")
+                .append("mainUploadId:").append(record.getMainUploadId()).append(",")
+                .append("isMultipart:").append(record.getIsMultipart()).append(",")
+                .append("isLastPart:").append(record.getIsLastPart()).append(",")
+                .append("partNumber:").append(record.getPartNumber()).append(",")
+                .append("multipartId:").append(record.getMultipartId()).append(",")
+                .append("eTag:").append(record.geteTag())
                 .append("]");
         return sb.toString();
     }

@@ -15,9 +15,6 @@
 
 package com.amazonaws.mobileconnectors.s3.transferutility;
 
-import android.os.Handler;
-import android.os.Looper;
-
 import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressListener;
 
@@ -31,6 +28,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
+import javafx.application.Platform;
 
 /**
  * A class that tracks active transfers. It has a static map that holds weak
@@ -70,16 +68,10 @@ class TransferStatusUpdater {
      */
     private final TransferDBUtil dbUtil;
     /**
-     * The handler of main thread that runs callbacks.
-     */
-    private final Handler mainHandler;
-
-    /**
      * This class is instantiated by TransferService.
      */
     TransferStatusUpdater(TransferDBUtil dbUtil) {
         this.dbUtil = dbUtil;
-        mainHandler = new Handler(Looper.getMainLooper());
         transfers = new HashMap<Integer, TransferRecord>();
         lastUpdateTime = new HashMap<Integer, Long>();
     }
@@ -99,7 +91,7 @@ class TransferStatusUpdater {
      * @param transfer a transfer object
      */
     void addTransfer(TransferRecord transfer) {
-        transfers.put(transfer.id, transfer);
+        transfers.put(transfer.getRecord().getId(), transfer);
     }
 
     /**
@@ -154,16 +146,12 @@ class TransferStatusUpdater {
         final TransferRecord transfer = transfers.get(id);
         if (transfer == null) {
             // still wants to save state
-            if (dbUtil.updateState(id, newState) == 0) {
-                LOGGER.warn("Failed to update the status of transfer " + id);
-            }
+            dbUtil.updateState(id, newState);
         } else {
-            shouldNotNotify |= newState.equals(transfer.state);
-            transfer.state = newState;
+            shouldNotNotify |= newState.equals(transfer.getRecord().getState());
+            transfer.getRecord().setState(newState);
             // save to database
-            if (dbUtil.updateTransferRecord(transfer) == 0) {
-                LOGGER.warn("Failed to update the status of transfer " + id);
-            }
+            dbUtil.updateTransferRecord(transfer);
         }
 
         if (shouldNotNotify) {
@@ -180,7 +168,7 @@ class TransferStatusUpdater {
         }
 
         // invoke on main thread
-        mainHandler.post(new Runnable() {
+        Platform.runLater(new Runnable() {
             @Override
             public void run() {
                 for (final TransferListener l : list) {
@@ -213,8 +201,8 @@ class TransferStatusUpdater {
     void updateProgress(final int id, final long bytesCurrent, final long bytesTotal) {
         final TransferRecord transfer = transfers.get(id);
         if (transfer != null) {
-            transfer.bytesCurrent = bytesCurrent;
-            transfer.bytesTotal = bytesTotal;
+            transfer.getRecord().setBytesCurrent(bytesCurrent);
+            transfer.getRecord().setBytesTotal(bytesTotal);
         }
 
         // Don't fire off the update too frequently, but still fire when it
@@ -238,7 +226,7 @@ class TransferStatusUpdater {
             lastUpdateTime.put(id, timeInMillis);
 
             // invoke on main thread
-            mainHandler.post(new Runnable() {
+            Platform.runLater(new Runnable() {
                 @Override
                 public void run() {
                     for (final TransferListener l : list) {
@@ -263,7 +251,7 @@ class TransferStatusUpdater {
             return;
         }
         // invoke on main thread
-        mainHandler.post(new Runnable() {
+        Platform.runLater(new Runnable() {
             @Override
             public void run() {
                 for (final TransferListener l : list) {
@@ -346,13 +334,13 @@ class TransferStatusUpdater {
             if (progressEvent.getEventCode() == ProgressEvent.RESET_EVENT_CODE) {
                 // Reset will discard what's been transferred, so subtract the
                 // bytes transferred in this task from the total progress.
-                transfer.bytesCurrent -= bytesCurrent;
+                transfer.getRecord().setBytesCurrent(transfer.getRecord().getBytesCurrent() - bytesCurrent);
                 bytesCurrent = 0;
             } else {
                 bytesCurrent += progressEvent.getBytesTransferred();
-                transfer.bytesCurrent += progressEvent.getBytesTransferred();
+                transfer.getRecord().setBytesCurrent(transfer.getRecord().getBytesCurrent() + progressEvent.getBytesTransferred());
             }
-            updateProgress(transfer.id, transfer.bytesCurrent, transfer.bytesTotal);
+            updateProgress(transfer.getRecord().getId(), transfer.getRecord().getBytesCurrent(), transfer.getRecord().getBytesTotal());
         }
     }
 
