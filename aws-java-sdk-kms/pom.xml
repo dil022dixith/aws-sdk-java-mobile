@@ -2,22 +2,22 @@
      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
      xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>com.amazonaws</groupId>
-  <artifactId>aws-android-sdk-kms</artifactId>
+  <groupId>com.gluonhq</groupId>
+  <artifactId>aws-java-sdk-kms</artifactId>
   <packaging>jar</packaging>
-  <name>AWS SDK for Java - AWS KMS</name>
-  <description>The AWS Java SDK for AWS KMS module holds the client classes that are used for communicating with AWS Key Management Service</description>
-  <url>http://aws.amazon.com/sdkforandroid</url>
+  <name>AWS SDK for Java Mobile - AWS KMS</name>
+  <description>The AWS Java Mobile SDK for AWS KMS module holds the client classes that are used for communicating with AWS Key Management Service</description>
+  <url>https://github.com/gluonhq/aws-sdk-java-mobile</url>
 
   <parent>
-    <groupId>com.amazonaws</groupId>
+    <groupId>com.gluonhq</groupId>
     <artifactId>aws-java-sdk-pom</artifactId>
     <version>2.6.19</version>
   </parent>
 
   <dependencies>
     <dependency>
-      <groupId>com.amazonaws</groupId>
+      <groupId>com.gluonhq</groupId>
       <artifactId>aws-java-sdk-core</artifactId>
       <optional>false</optional>
       <version>2.6.19</version>

@@ -2,13 +2,13 @@
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>com.amazonaws</groupId>
+  <groupId>com.gluonhq</groupId>
   <artifactId>aws-java-sdk-pom</artifactId>
   <packaging>pom</packaging>
   <name>AWS SDK for Java Mobile</name>
   <version>2.6.19</version>
-  <description>The Amazon Web Services SDK for Java provides Java APIs for building software on AWS’ cost-effective, scalable, and reliable infrastructure products. The AWS SDK for Java allows developers to code against APIs for all of Amazon's infrastructure web services (Amazon S3, Amazon EC2, Amazon SQS, Auto Scaling, etc).</description>
-  <url>http://aws.amazon.com/sdkforandroid</url>
+  <description>The Amazon Web Services SDK for Java Mobile provides Java APIs for building software on AWS’ cost-effective, scalable, and reliable infrastructure products. The AWS SDK for Java allows developers to code against APIs for all of Amazon's infrastructure web services (Amazon S3, Amazon EC2, Amazon SQS, Auto Scaling, etc).</description>
+  <url>https://github.com/gluonhq/aws-sdk-java-mobile</url>
 
   <properties>
     <project.build.sourceEncoding>
@@ -20,13 +20,13 @@
   </properties>
 
   <scm>
-    <url>http://github.com/aws/aws-sdk-android.git</url>
+    <url>https://github.com/gluonhq/aws-sdk-java-mobile.git</url>
   </scm>
 
   <licenses>
     <license>
       <name>Apache License, Version 2.0</name>
-      <url>http://aws.amazon.com/apache2.0</url>
+      <url>https://www.apache.org/licenses/LICENSE-2.0</url>
       <distribution>repo</distribution>
     </license>
   </licenses>
@@ -73,9 +73,9 @@
 
   <developers>
     <developer>
-      <id>amazonwebservices</id>
-      <organization>Amazon Web Services</organization>
-      <organizationUrl>http://aws.amazon.com</organizationUrl>
+      <id>gluon</id>
+      <organization>Gluon</organization>
+      <organizationUrl>http://gluonhq.com</organizationUrl>
       <roles>
         <role>developer</role>
       </roles>
@@ -142,9 +142,35 @@
             </executions>
           </plugin>
           <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>attach-javadoc</id>
+                <phase>package</phase>
+                <goals>
+                  <goal>jar</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-source-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>attach-source</id>
+                <phase>package</phase>
+                <goals>
+                  <goal>jar</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
             <groupId>org.sonatype.plugins</groupId>
             <artifactId>nexus-staging-maven-plugin</artifactId>
-            <version>1.5.1</version>
+            <version>1.6.8</version>
             <extensions>true</extensions>
             <configuration>
               <serverId>sonatype-nexus-staging</serverId>
