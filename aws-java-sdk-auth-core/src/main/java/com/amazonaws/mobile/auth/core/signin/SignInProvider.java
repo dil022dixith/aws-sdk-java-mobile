@@ -17,11 +17,8 @@
 
 package com.amazonaws.mobile.auth.core.signin;
 
-import android.app.Activity;
-import android.content.Intent;
-import android.view.View;
-
 import com.amazonaws.mobile.auth.core.IdentityProvider;
+import javafx.scene.control.Button;
 
 /**
  * Each sign-in provider implements this interface, in order to do sign-in button
@@ -42,17 +39,14 @@ public interface SignInProvider extends IdentityProvider {
      * @param resultCode the result code.
      * @param data the result intent.
      */
-    void handleActivityResult(int requestCode, int resultCode, Intent data);
+    void handleActivityResult(int requestCode, int resultCode, Object data);
 
     /**
      * Initialize the sign-in button for the sign-in activity.
-     * @param signInActivity the activity for sign-in.
-     * @param buttonView the view for the sign-in button to initialize.
+     * @param buttonView the button
      * @param resultsHandler the resultsHandler for provider sign-in.
      * @return the onClickListener for the button to be able to override the listener,
      *         and null if the button cannot be initialized.
      */
-    View.OnClickListener initializeSignInButton(Activity signInActivity,
-                                                View buttonView,
-                                                SignInProviderResultHandler resultsHandler);
+    Runnable initializeSignInButton(Button buttonView, SignInProviderResultHandler resultsHandler);
 }
