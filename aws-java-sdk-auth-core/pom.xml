@@ -30,29 +30,10 @@
       <optional>false</optional>
       <version>2.6.19</version>
     </dependency>
-
-    <dependency>
-      <groupId>com.google.android</groupId>
-      <artifactId>android</artifactId>
-      <version>4.1.1.4</version>
-      <scope>provided</scope>
-    </dependency>
   </dependencies>
 
   <build>
     <plugins>
-      <plugin>
-        <groupId>com.simpligility.maven.plugins</groupId>
-        <artifactId>android-maven-plugin</artifactId>
-        <version>4.5.0</version>
-        <extensions>true</extensions>
-        <configuration>
-          <sdk>
-            <platform>11</platform>
-            <buildTools>19.1.0</buildTools>
-          </sdk>
-        </configuration>
-      </plugin>
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
