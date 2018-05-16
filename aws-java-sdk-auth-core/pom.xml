@@ -30,6 +30,11 @@
       <optional>false</optional>
       <version>2.6.19</version>
     </dependency>
+    <dependency>
+        <groupId>com.gluonhq</groupId>
+        <artifactId>charm-down-plugin-settings</artifactId>
+        <version>3.8.0</version>
+    </dependency>
   </dependencies>
 
   <build>
