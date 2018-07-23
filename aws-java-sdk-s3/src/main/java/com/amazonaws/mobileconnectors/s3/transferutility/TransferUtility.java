@@ -18,11 +18,6 @@ package com.amazonaws.mobileconnectors.s3.transferutility;
 import static com.amazonaws.services.s3.internal.Constants.MAXIMUM_UPLOAD_PARTS;
 import static com.amazonaws.services.s3.internal.Constants.MB;
 
-import android.content.ContentValues;
-import android.content.Context;
-import android.content.Intent;
-import android.database.Cursor;
-import android.net.Uri;
 import org.json.JSONObject;
 
 import com.amazonaws.AmazonWebServiceRequest;
@@ -33,12 +28,11 @@ import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.util.VersionInfoUtils;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * The transfer utility is a high-level class for applications to upload and
@@ -100,7 +94,7 @@ import java.util.List;
  */
 public class TransferUtility {
 
-    private static final Log LOGGER = LogFactory.getLog(TransferUtility.class);
+    private static final Logger LOGGER = Logger.getLogger(TransferUtility.class.getName());
 
     /**
      * Default minimum part size for upload parts. Anything below this will use
@@ -125,7 +119,6 @@ public class TransferUtility {
     }
 
     private final AmazonS3 s3;
-    private final Context appContext;
     private final TransferDBUtil dbUtil;
     private final String defaultBucket;
     private final TransferUtilityOptions transferUtilityOptions;
@@ -135,7 +128,6 @@ public class TransferUtility {
      */
     public static class Builder {
         private AmazonS3 s3;
-        private Context appContext;
         private String defaultBucket;
         private AWSConfiguration awsConfig;
         private TransferUtilityOptions transferUtilityOptions;
@@ -150,17 +142,6 @@ public class TransferUtility {
          */
         public Builder s3Client(final AmazonS3 s3Client) {
             this.s3 = s3Client;
-            return this;
-        }
-        
-        /**
-         * Sets the context used.
-         * 
-         * @param applicationContext The application context.
-         * @return builder
-         */
-        public Builder context(final Context applicationContext) {
-            this.appContext = applicationContext.getApplicationContext();
             return this;
         }
         
@@ -233,8 +214,6 @@ public class TransferUtility {
         public TransferUtility build() {
             if (this.s3 == null) {
                 throw new IllegalArgumentException("AmazonS3 client is required please set using .s3Client(yourClient)");
-            } else if (this.appContext == null) {
-                throw new IllegalArgumentException("Context is required please set using .context(applicationContext)");
             }
             
             if (this.awsConfig != null) {
@@ -255,7 +234,6 @@ public class TransferUtility {
             }
             
             return new TransferUtility(this.s3,
-                                    this.appContext,
                                     this.defaultBucket,
                                     this.transferUtilityOptions);
         }
@@ -275,17 +253,14 @@ public class TransferUtility {
      * Constructor.
      * 
      * @param s3 The client to use when making requests to Amazon S3
-     * @param context The current context
      * @param defaultBucket The name of the default S3 bucket
      * @param tuOptions The TransferUtility Options object
      */
     private TransferUtility(AmazonS3 s3,
-                            Context context,
                             String defaultBucket,
                             TransferUtilityOptions tuOptions) {
         this.s3 = s3;
-        this.appContext = context.getApplicationContext();
-        this.dbUtil = new TransferDBUtil(appContext);
+        this.dbUtil = new TransferDBUtil();
         this.defaultBucket = defaultBucket;
         this.transferUtilityOptions = tuOptions;
     }
@@ -296,15 +271,13 @@ public class TransferUtility {
      * reference.
      *
      * @param s3 The client to use when making requests to Amazon S3
-     * @param context The current context
      * 
      * @deprecated Please use TransferUtility.builder().s3Client(s3).context(context).build()
      */
     @Deprecated
-    public TransferUtility(AmazonS3 s3, Context context) {
+    public TransferUtility(AmazonS3 s3) {
         this.s3 = s3;
-        this.appContext = context.getApplicationContext();
-        this.dbUtil = new TransferDBUtil(appContext);
+        this.dbUtil = new TransferDBUtil();
         this.defaultBucket = null;
         this.transferUtilityOptions = new TransferUtilityOptions();
     }
@@ -365,16 +338,14 @@ public class TransferUtility {
         if (file == null || file.isDirectory()) {
             throw new IllegalArgumentException("Invalid file: " + file);
         }
-        final Uri uri = dbUtil.insertSingleTransferRecord(TransferType.DOWNLOAD,
-                bucket, key, file);
-        final int recordId = Integer.parseInt(uri.getLastPathSegment());
+        final int recordId = dbUtil.insertSingleTransferRecord(TransferType.DOWNLOAD, bucket, key, file);
         if (file.isFile()) {
-            LOGGER.warn("Overwrite existing file: " + file);
+            LOGGER.log(Level.WARNING, "Overwrite existing file: " + file);
             file.delete();
         }
 
         sendIntent(TransferService.INTENT_ACTION_TRANSFER_ADD, recordId);
-        return new TransferObserver(recordId, dbUtil, bucket, key, file, listener);
+        return new TransferObserver(recordId, bucket, key, file, listener);
     }
 
     /**
@@ -536,13 +507,12 @@ public class TransferUtility {
             recordId = createMultipartUploadRecords(bucket, key, file, metadata, cannedAcl);
         } else {
 
-            final Uri uri = dbUtil.insertSingleTransferRecord(TransferType.UPLOAD,
+            recordId = dbUtil.insertSingleTransferRecord(TransferType.UPLOAD,
                     bucket, key, file, metadata, cannedAcl);
-            recordId = Integer.parseInt(uri.getLastPathSegment());
         }
 
         sendIntent(TransferService.INTENT_ACTION_TRANSFER_ADD, recordId);
-        return new TransferObserver(recordId, dbUtil, bucket, key, file, listener);
+        return new TransferObserver(recordId, bucket, key, file, listener);
     }
 
     /**
@@ -570,20 +540,13 @@ public class TransferUtility {
      * @return The TransferObserver instance which is observing the record.
      */
     public TransferObserver getTransferById(int id) {
-        Cursor c = null;
-        try {
-            c = dbUtil.queryTransferById(id);
-            if (c.moveToNext()) {
-                final TransferObserver to = new TransferObserver(id, dbUtil);
-                to.updateFromDB(c);
+        for (Record r : Service.getInstance().getRecords()) {
+            if (r.getId() == id) {
+                final TransferObserver to = new TransferObserver(id);
+                to.updateFromDB(r);
                 return to;
             }
-        } finally {
-            if (c != null) {
-                c.close();
-            }
         }
-
         return null;
     }
 
@@ -596,20 +559,14 @@ public class TransferUtility {
      */
     public List<TransferObserver> getTransfersWithType(TransferType type) {
         final List<TransferObserver> transferObservers = new ArrayList<TransferObserver>();
-        Cursor c = null;
-        try {
-            c = dbUtil.queryAllTransfersWithType(type);
-            while (c.moveToNext()) {
-                final int id = c.getInt(c.getColumnIndexOrThrow(TransferTable.COLUMN_ID));
-                final TransferObserver to = new TransferObserver(id, dbUtil);
-                to.updateFromDB(c);
+        for (Record record : Service.getInstance().getRecords()) {
+            if (record.getType().equals(type)) {
+                final TransferObserver to = new TransferObserver(record.getId());
+                to.updateFromDB(record);
                 transferObservers.add(to);
             }
-        } finally {
-            if (c != null) {
-                c.close();
-            }
         }
+        
         return transferObservers;
     }
 
@@ -641,23 +598,17 @@ public class TransferUtility {
     public List<TransferObserver> getTransfersWithTypeAndStates(TransferType type,
                                                                 TransferState[] states) {
         final List<TransferObserver> transferObservers = new ArrayList<TransferObserver>();
-        Cursor c = null;
-        try {
-            c = dbUtil.queryTransfersWithTypeAndStates(type, states);
-            while (c.moveToNext()) {
-                final int partNum = c.getInt(c.getColumnIndexOrThrow(TransferTable.COLUMN_PART_NUM));
-                if (partNum != 0) {
+        for (Record record : Service.getInstance().getRecords()) {
                     // skip parts of a multipart upload
-                    continue;
-                }
-                final int id = c.getInt(c.getColumnIndexOrThrow(TransferTable.COLUMN_ID));
-                final TransferObserver to = new TransferObserver(id, dbUtil);
-                to.updateFromDB(c);
+            if (record.getType().equals(type) && ! record.getMultipartId().equals("0")) {
+                for (TransferState state : states) {
+                    if (record.getState().equals(state)) {
+                        final TransferObserver to = new TransferObserver(record.getId());
+                        to.updateFromDB(record);
                 transferObservers.add(to);
-            }
-        } finally {
-            if (c != null) {
-                c.close();
+                        break;
+                    }
+                }
             }
         }
         return transferObservers;
@@ -674,21 +625,17 @@ public class TransferUtility {
     private List<Integer> getTransferIdsWithTypeAndStates(TransferType type,
                                                           TransferState[] states) {
         List<Integer> transferIds = new ArrayList<Integer>();
-        Cursor c = null;
-        try {
-            c = dbUtil.queryTransfersWithTypeAndStates(type, states);
-            while (c.moveToNext()) {
-                final int partNum = c.getInt(c.getColumnIndexOrThrow(TransferTable.COLUMN_PART_NUM));
-                if (partNum != 0) {
+        for (Record record : Service.getInstance().getRecords()) {
                     // skip parts of a multipart upload
-                    continue;
+            if (record.getType().equals(type) && ! record.getMultipartId().equals("0")) {
+                for (TransferState state : states) {
+                    if (record.getState().equals(state)) {
+                        final TransferObserver to = new TransferObserver(record.getId());
+                        to.updateFromDB(record);
+                        transferIds.add(to.getId());
+                        break;
+                    }
                 }
-                final int id = c.getInt(c.getColumnIndexOrThrow(TransferTable.COLUMN_ID));
-                transferIds.add(id);
-            }
-        } finally {
-            if (c != null) {
-                c.close();
             }
         }
         return transferIds;
@@ -720,12 +667,12 @@ public class TransferUtility {
          * the size of valuesArray is partCount + 1, one for a multipart upload
          * summary, others are actual parts to be uploaded
          */
-        final ContentValues[] valuesArray = new ContentValues[partCount + 1];
-        valuesArray[0] = dbUtil.generateContentValuesForMultiPartUpload(bucket, key,
+        final Record[] valuesArray = new Record[partCount + 1];
+        valuesArray[0] = dbUtil.generateRecordForMultiPartUpload(bucket, key,
                 file, fileOffset, 0, "", file.length(), 0, metadata, cannedAcl);
         for (int i = 1; i < partCount + 1; i++) {
             final long bytesForPart = Math.min(optimalPartSize, remainingLenth);
-            valuesArray[i] = dbUtil.generateContentValuesForMultiPartUpload(bucket, key,
+            valuesArray[i] = dbUtil.generateRecordForMultiPartUpload(bucket, key,
                     file, fileOffset, partNumber, "", bytesForPart, remainingLenth
                             - optimalPartSize <= 0 ? 1 : 0,
                     metadata, cannedAcl);
@@ -753,16 +700,9 @@ public class TransferUtility {
      * @param type The type of transfers
      */
     public void pauseAllWithType(TransferType type) {
-        Cursor c = null;
-        try {
-            c = dbUtil.queryAllTransfersWithType(type);
-            while (c.moveToNext()) {
-                final int id = c.getInt(c.getColumnIndexOrThrow(TransferTable.COLUMN_ID));
-                pause(id);
-            }
-        } finally {
-            if (c != null) {
-                c.close();
+        for (Record record : Service.getInstance().getRecords()) {
+            if (record.getType().equals(type)) {
+                pause(record.getId());
             }
         }
     }
@@ -830,16 +770,9 @@ public class TransferUtility {
      * @param type The type of transfers
      */
     public void cancelAllWithType(TransferType type) {
-        Cursor c = null;
-        try {
-            c = dbUtil.queryAllTransfersWithType(type);
-            while (c.moveToNext()) {
-                final int id = c.getInt(c.getColumnIndexOrThrow(TransferTable.COLUMN_ID));
-                cancel(id);
-            }
-        } finally {
-            if (c != null) {
-                c.close();
+        for (Record record : Service.getInstance().getRecords()) {
+            if (record.getType().equals(type)) {
+                cancel(record.getId());
             }
         }
     }
@@ -865,12 +798,9 @@ public class TransferUtility {
      */
     private synchronized void sendIntent(String action, int id) {
         S3ClientReference.put(id, s3);
-        final Intent intent = new Intent(appContext, TransferService.class);
-        intent.setAction(action);
-        intent.putExtra(TransferService.INTENT_BUNDLE_TRANSFER_ID, id);
-        intent.putExtra(TransferService.INTENT_BUNDLE_TRANSFER_UTILITY_OPTIONS,
-                        this.transferUtilityOptions);
-        appContext.startService(intent);
+        TransferService service = new TransferService();
+        LOGGER.log(Level.INFO, "Sending action intent: " + action + " for id " + id);
+        service.onStartCommand(action, id, transferUtilityOptions, id, id);
     }
 
     private boolean shouldUploadInMultipart(File file) {

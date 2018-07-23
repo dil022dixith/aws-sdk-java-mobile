@@ -68,12 +68,16 @@ class UploadTask implements Callable<Boolean> {
      */
     @Override
     public Boolean call() throws Exception {
+        LOGGER.info("CALL Upload Task " + networkInfo.isNetworkConnected());
         if (!networkInfo.isNetworkConnected()) {
-            updater.updateState(upload.id, TransferState.WAITING_FOR_NETWORK);
+            updater.updateState(upload.getRecord().getId(), TransferState.WAITING_FOR_NETWORK);
+            LOGGER.info("Upload Task not connected - false");
             return false;
         }
-        updater.updateState(upload.id, TransferState.IN_PROGRESS);
-        if (upload.isMultipart == 1 && upload.partNumber == 0) {
+        LOGGER.info("Upload Task state progress");
+        updater.updateState(upload.getRecord().getId(), TransferState.IN_PROGRESS);
+        LOGGER.info("Upload Task - multipart " + upload.getRecord().getIsMultipart());
+        if (upload.getRecord().getIsMultipart() == 1 && upload.getRecord().getPartNumber() == 0) {
             /*
              * If part number = 0, this multipart upload record is not a real
              * part upload task, it's a summary for all the parts with part
@@ -81,7 +85,7 @@ class UploadTask implements Callable<Boolean> {
              * upload parts.
              */
             return uploadMultipartAndWaitForCompletion();
-        } else if (upload.isMultipart == 0) {
+        } else if (upload.getRecord().getIsMultipart() == 0) {
             /*
              * uploads in one Chunk, doesn't support pause and resume.
              */
@@ -96,39 +100,39 @@ class UploadTask implements Callable<Boolean> {
          * it's a resumed upload, upload.mMultipartId would not be null.
          */
         long bytesAlreadyTransferrd = 0;
-        if (upload.multipartId == null || upload.multipartId.isEmpty()) {
+        if (upload.getRecord().getMultipartId() == null || upload.getRecord().getMultipartId().isEmpty()) {
             final PutObjectRequest putObjectRequest = createPutObjectRequest(upload);
             TransferUtility.appendMultipartTransferServiceUserAgentString(putObjectRequest);
             try {
-                upload.multipartId = initiateMultipartUpload(putObjectRequest);
+                upload.getRecord().setMultipartId(initiateMultipartUpload(putObjectRequest));
             } catch (final AmazonClientException ace) {
-                LOGGER.error("Error initiating multipart upload: " + upload.id
+                LOGGER.error("Error initiating multipart upload: " + upload.getRecord().getId()
                         + " due to " + ace.getMessage(), ace);
-                updater.throwError(upload.id, ace);
-                updater.updateState(upload.id, TransferState.FAILED);
+                updater.throwError(upload.getRecord().getId(), ace);
+                updater.updateState(upload.getRecord().getId(), TransferState.FAILED);
                 return false;
             }
-            dbUtil.updateMultipartId(upload.id, upload.multipartId);
+            dbUtil.updateMultipartId(upload.getRecord().getId(), upload.getRecord().getMultipartId());
         } else {
             /*
              * For a resumed upload, we should calculate the bytes already
              * transferred.
              */
-            bytesAlreadyTransferrd = dbUtil.queryBytesTransferredByMainUploadId(upload.id);
+            bytesAlreadyTransferrd = dbUtil.queryBytesTransferredByMainUploadId(upload.getRecord().getId());
             if (bytesAlreadyTransferrd > 0) {
                 LOGGER.debug(String.format("Resume transfer %d from %d bytes",
-                        upload.id, bytesAlreadyTransferrd));
+                        upload.getRecord().getId(), bytesAlreadyTransferrd));
             }
         }
-        updater.updateProgress(upload.id, bytesAlreadyTransferrd, upload.bytesTotal);
+        updater.updateProgress(upload.getRecord().getId(), bytesAlreadyTransferrd, upload.getRecord().getBytesTotal());
 
-        final List<UploadPartRequest> requestList = dbUtil.getNonCompletedPartRequestsFromDB(upload.id,
-                upload.multipartId);
-        LOGGER.debug("multipart upload " + upload.id + " in " + requestList.size() + " parts.");
+        final List<UploadPartRequest> requestList = dbUtil.getNonCompletedPartRequestsFromDB(upload.getRecord().getId(),
+                upload.getRecord().getMultipartId());
+        LOGGER.debug("multipart upload " + upload.getRecord().getId() + " in " + requestList.size() + " parts.");
         final ArrayList<Future<Boolean>> futures = new ArrayList<Future<Boolean>>();
         for (final UploadPartRequest request : requestList) {
             TransferUtility.appendMultipartTransferServiceUserAgentString(request);
-            request.setGeneralProgressListener(updater.newProgressListener(upload.id));
+            request.setGeneralProgressListener(updater.newProgressListener(upload.getRecord().getId()));
             futures.add(TransferThreadPool.submitTask(new UploadPartTask(request, s3, dbUtil, networkInfo)));
         }
         try {
@@ -155,17 +159,17 @@ class UploadTask implements Callable<Boolean> {
                 f.cancel(true);
             }
             // abort by user
-            LOGGER.debug("Transfer " + upload.id + " is interrupted by user");
+            LOGGER.debug("Transfer " + upload.getRecord().getId() + " is interrupted by user");
             return false;
         } catch (final ExecutionException ee) {
             // handle pause, cancel, etc
             boolean isNetworkInterrupted = false;
             if (ee.getCause() != null && ee.getCause() instanceof Exception) {
                 // check for network interruption and pause the transfer instead of failing them
-                isNetworkInterrupted = dbUtil.checkWaitingForNetworkPartRequestsFromDB(upload.id);
+                isNetworkInterrupted = dbUtil.checkWaitingForNetworkPartRequestsFromDB(upload.getRecord().getId());
                 if (isNetworkInterrupted) {
-                    LOGGER.debug("Network Connection Interrupted: Transfer " + upload.id + " waits for network");
-                    updater.updateState(upload.id, TransferState.WAITING_FOR_NETWORK);
+                    LOGGER.debug("Network Connection Interrupted: Transfer " + upload.getRecord().getId() + " waits for network");
+                    updater.updateState(upload.getRecord().getId(), TransferState.WAITING_FOR_NETWORK);
                     return false;
                 }
                 final Exception e = (Exception) ee.getCause();
@@ -174,46 +178,48 @@ class UploadTask implements Callable<Boolean> {
                      * thread is interrupted by user. don't update the state as
                      * it's set by caller who interrupted
                      */
-                    LOGGER.debug("Transfer " + upload.id + " is interrupted by user");
+                    LOGGER.debug("Transfer " + upload.getRecord().getId() + " is interrupted by user");
                     return false;
                 } else if (e.getCause() != null && e.getCause() instanceof IOException
                         && !networkInfo.isNetworkConnected()) {
-                    LOGGER.debug("Transfer " + upload.id + " waits for network");
-                    updater.updateState(upload.id, TransferState.WAITING_FOR_NETWORK);
+                    LOGGER.debug("Transfer " + upload.getRecord().getId() + " waits for network");
+                    updater.updateState(upload.getRecord().getId(), TransferState.WAITING_FOR_NETWORK);
                 }
-                updater.throwError(upload.id, e);
+                updater.throwError(upload.getRecord().getId(), e);
             }
-            updater.updateState(upload.id, TransferState.FAILED);
+            updater.updateState(upload.getRecord().getId(), TransferState.FAILED);
             return false;
         }
 
         try {
-            completeMultiPartUpload(upload.id, upload.bucketName, upload.key,
-                    upload.multipartId);
-            updater.updateProgress(upload.id, upload.bytesTotal, upload.bytesTotal);
-            updater.updateState(upload.id, TransferState.COMPLETED);
+            completeMultiPartUpload(upload.getRecord().getId(), upload.getRecord().getBucketName(), upload.getRecord().getKey(),
+                    upload.getRecord().getMultipartId());
+            updater.updateProgress(upload.getRecord().getId(), upload.getRecord().getBytesTotal(), upload.getRecord().getBytesTotal());
+            updater.updateState(upload.getRecord().getId(), TransferState.COMPLETED);
             return true;
         } catch (final AmazonClientException ace) {
-            LOGGER.error("Failed to complete multipart: " + upload.id
+            LOGGER.error("Failed to complete multipart: " + upload.getRecord().getId()
                     + " due to " + ace.getMessage(), ace);
-            updater.throwError(upload.id, ace);
-            updater.updateState(upload.id, TransferState.FAILED);
+            updater.throwError(upload.getRecord().getId(), ace);
+            updater.updateState(upload.getRecord().getId(), TransferState.FAILED);
             return false;
         }
     }
 
     private Boolean uploadSinglePartAndWaitForCompletion() {
+        LOGGER.info("Upload single part");
         final PutObjectRequest putObjectRequest = createPutObjectRequest(upload);
 
         final long length = putObjectRequest.getFile().length();
+        LOGGER.info("length single part: " + length);
         TransferUtility.appendTransferServiceUserAgentString(putObjectRequest);
-        updater.updateProgress(upload.id, 0, length);
-        putObjectRequest.setGeneralProgressListener(updater.newProgressListener(upload.id));
+        updater.updateProgress(upload.getRecord().getId(), 0, length);
+        putObjectRequest.setGeneralProgressListener(updater.newProgressListener(upload.getRecord().getId()));
 
         try {
             s3.putObject(putObjectRequest);
-            updater.updateProgress(upload.id, length, length);
-            updater.updateState(upload.id, TransferState.COMPLETED);
+            updater.updateProgress(upload.getRecord().getId(), length, length);
+            updater.updateState(upload.getRecord().getId(), TransferState.COMPLETED);
             return true;
         } catch (final Exception e) {
             if (RetryUtils.isInterrupted(e)) {
@@ -221,23 +227,23 @@ class UploadTask implements Callable<Boolean> {
                  * thread is interrupted by user. don't update the state as it's
                  * set by caller who interrupted
                  */
-                LOGGER.debug("Transfer " + upload.id + " is interrupted by user");
+                LOGGER.debug("Transfer " + upload.getRecord().getId() + " is interrupted by user");
                 return false;
             } else if (e.getCause() != null && e.getCause() instanceof AmazonClientException
                     && !networkInfo.isNetworkConnected()) {
                 // check for network interruption and pause the transfer instead of failing them
-                LOGGER.debug("Network Connection Interrupted: Transfer " + upload.id + " waits for network");
-                updater.updateState(upload.id, TransferState.WAITING_FOR_NETWORK);
+                LOGGER.debug("Network Connection Interrupted: Transfer " + upload.getRecord().getId() + " waits for network");
+                updater.updateState(upload.getRecord().getId(), TransferState.WAITING_FOR_NETWORK);
                 return false;
             } else if (e.getCause() != null && e.getCause() instanceof IOException
                     && !networkInfo.isNetworkConnected()) {
-                LOGGER.debug("Transfer " + upload.id + " waits for network");
-                updater.updateState(upload.id, TransferState.WAITING_FOR_NETWORK);
+                LOGGER.debug("Transfer " + upload.getRecord().getId() + " waits for network");
+                updater.updateState(upload.getRecord().getId(), TransferState.WAITING_FOR_NETWORK);
             }
             // all other exceptions
-            LOGGER.debug("Failed to upload: " + upload.id + " due to " + e.getMessage(), e);
-            updater.throwError(upload.id, e);
-            updater.updateState(upload.id, TransferState.FAILED);
+            LOGGER.debug("Failed to upload: " + upload.getRecord().getId() + " due to " + e.getMessage(), e);
+            updater.throwError(upload.getRecord().getId(), e);
+            updater.updateState(upload.getRecord().getId(), TransferState.FAILED);
             return false;
         }
     }
@@ -280,49 +286,49 @@ class UploadTask implements Callable<Boolean> {
      */
     @SuppressWarnings("checkstyle:hiddenfield")
     private PutObjectRequest createPutObjectRequest(TransferRecord upload) {
-        final File file = new File(upload.file);
-        final PutObjectRequest putObjectRequest = new PutObjectRequest(upload.bucketName,
-                upload.key, file);
+        final File file = new File(upload.getRecord().getFile());
+        final PutObjectRequest putObjectRequest = new PutObjectRequest(upload.getRecord().getBucketName(),
+                upload.getRecord().getKey(), file);
 
         final ObjectMetadata om = new ObjectMetadata();
         om.setContentLength(file.length());
 
-        if (upload.headerCacheControl != null) {
-            om.setCacheControl(upload.headerCacheControl);
+        if (upload.getRecord().getHeaderCacheControl() != null) {
+            om.setCacheControl(upload.getRecord().getHeaderCacheControl());
         }
-        if (upload.headerContentDisposition != null) {
-            om.setContentDisposition(upload.headerContentDisposition);
+        if (upload.getRecord().getHeaderContentDisposition() != null) {
+            om.setContentDisposition(upload.getRecord().getHeaderContentDisposition());
         }
-        if (upload.headerContentEncoding != null) {
-            om.setContentEncoding(upload.headerContentEncoding);
+        if (upload.getRecord().getHeaderContentEncoding() != null) {
+            om.setContentEncoding(upload.getRecord().getHeaderContentEncoding());
         }
-        if (upload.headerContentType != null) {
-            om.setContentType(upload.headerContentType);
+        if (upload.getRecord().getHeaderContentType() != null) {
+            om.setContentType(upload.getRecord().getHeaderContentType());
         } else {
             om.setContentType(Mimetypes.getInstance().getMimetype(file));
         }
-        if (upload.expirationTimeRuleId != null) {
-            om.setExpirationTimeRuleId(upload.expirationTimeRuleId);
+        if (upload.getRecord().getExpirationTimeRuleId() != null) {
+            om.setExpirationTimeRuleId(upload.getRecord().getExpirationTimeRuleId());
         }
-        if (upload.httpExpires != null) {
-            om.setHttpExpiresDate(new Date(Long.valueOf(upload.httpExpires)));
+        if (upload.getRecord().getHttpExpires() != null) {
+            om.setHttpExpiresDate(new Date(Long.valueOf(upload.getRecord().getHttpExpires())));
         }
-        if (upload.sseAlgorithm != null) {
-            om.setSSEAlgorithm(upload.sseAlgorithm);
+        if (upload.getRecord().getSseAlgorithm() != null) {
+            om.setSSEAlgorithm(upload.getRecord().getSseAlgorithm());
         }
-        if (upload.userMetadata != null) {
-            om.setUserMetadata(upload.userMetadata);
+        if (upload.getRecord().getUserMetadata() != null) {
+            om.setUserMetadata(upload.getRecord().getUserMetadata());
         }
-        if (upload.md5 != null) {
-            om.setContentMD5(upload.md5);
+        if (upload.getRecord().getMd5() != null) {
+            om.setContentMD5(upload.getRecord().getMd5());
         }
-        if (upload.sseKMSKey != null) {
+        if (upload.getRecord().getSseKMSKey() != null) {
             putObjectRequest
-                    .setSSEAwsKeyManagementParams(new SSEAwsKeyManagementParams(upload.sseKMSKey));
+                    .setSSEAwsKeyManagementParams(new SSEAwsKeyManagementParams(upload.getRecord().getSseKMSKey()));
         }
 
         putObjectRequest.setMetadata(om);
-        putObjectRequest.setCannedAcl(getCannedAclFromString(upload.cannedAcl));
+        putObjectRequest.setCannedAcl(getCannedAclFromString(upload.getRecord().getCannedAcl()));
 
         return putObjectRequest;
     }

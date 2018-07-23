@@ -17,8 +17,6 @@
 
 package com.amazonaws.mobile.auth.core;
 
-import android.content.Context;
-
 import com.amazonaws.mobile.config.AWSConfiguration;
 
 /**
@@ -32,7 +30,7 @@ public interface IdentityProvider {
      * @param context the context.
      * @param configuration the configuration.
      */
-    void initialize(Context context, AWSConfiguration configuration);
+    void initialize(AWSConfiguration configuration);
 
     /**
      * @return the display name for this provider.

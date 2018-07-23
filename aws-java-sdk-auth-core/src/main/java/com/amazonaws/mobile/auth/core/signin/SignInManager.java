@@ -17,21 +17,19 @@
 
 package com.amazonaws.mobile.auth.core.signin;
 
-import android.app.Activity;
-import android.content.Context;
-import android.content.Intent;
-import android.util.Log;
-import android.util.SparseArray;
-import android.view.View;
-
 import com.amazonaws.mobile.auth.core.IdentityManager;
 import com.amazonaws.mobile.auth.core.IdentityProvider;
 import com.amazonaws.mobile.auth.core.SignInResultHandler;
-import com.amazonaws.mobile.auth.core.internal.util.ThreadUtils;
+import java.util.ArrayList;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javafx.application.Platform;
+import javafx.scene.control.Button;
 
 /**
  * The SignInManager is a singleton component, which orchestrates sign-in and sign-up flows. It is responsible for
@@ -39,9 +37,9 @@ import java.util.Map;
  * buttons with the providers.
  */
 public class SignInManager {
-    /** Log Tag */
-    private static final String LOG_TAG = SignInManager.class.getSimpleName();
 
+    private static final Logger LOG = Logger.getLogger(SignInManager.class.getName());
+    
     /** This map holds the class and the object of the sign-in providers */
     private final Map<Class<? extends SignInProvider>, SignInProvider> signInProviders 
         = new HashMap<Class<? extends SignInProvider>, SignInProvider>();
@@ -53,30 +51,30 @@ public class SignInManager {
     private volatile SignInResultHandler signInResultHandler;
 
     /** permissions handler */
-    private final SparseArray<SignInPermissionsHandler> providersHandlingPermissions 
-        = new SparseArray<SignInPermissionsHandler>();
+    private final List<SignInPermissionsHandler> providersHandlingPermissions 
+        = new ArrayList<SignInPermissionsHandler>();
 
     /**
      * Constructor.
      */
-    private SignInManager(final Context context) {
+    private SignInManager() {
 
         for (Class<? extends SignInProvider> providerClass : IdentityManager.getDefaultIdentityManager().getSignInProviderClasses()) {
             final SignInProvider provider;
             try {
                 provider = providerClass.newInstance();  
                 if (provider != null) {
-	                provider.initialize(context, IdentityManager.getDefaultIdentityManager().getConfiguration());
+	                provider.initialize(IdentityManager.getDefaultIdentityManager().getConfiguration());
 	                signInProviders.put(providerClass, provider);
 	                if (provider instanceof SignInPermissionsHandler) {
 	                    final SignInPermissionsHandler handler = (SignInPermissionsHandler) provider;
-	                    providersHandlingPermissions.put(handler.getPermissionRequestCode(), handler);
+	                    providersHandlingPermissions.add(handler.getPermissionRequestCode(), handler);
 	                }
                 }
             } catch (final IllegalAccessException ex) {
-                Log.e(LOG_TAG, "Unable to instantiate " + providerClass.getSimpleName() + " . Skipping this provider.");       
+                LOG.log(Level.WARNING, "Unable to instantiate " + providerClass.getSimpleName() + " . Skipping this provider.");       
             } catch (final InstantiationException ex) {
-            	Log.e(LOG_TAG, "Unable to instantiate " + providerClass.getSimpleName() + " . Skipping this provider.");
+            	LOG.log(Level.WARNING, "Unable to instantiate " + providerClass.getSimpleName() + " . Skipping this provider.");
             }
             
         }
@@ -90,17 +88,8 @@ public class SignInManager {
      * @return instance
      */
     public synchronized static SignInManager getInstance() {
-        return singleton;
-    }
-
-    /**
-     * Gets the singleton instance of this class.
-     *
-     * @return instance
-     */
-    public synchronized static SignInManager getInstance(final Context context) {
         if (singleton == null) {
-            singleton = new SignInManager(context);
+            singleton = new SignInManager();
         }
         return singleton;
     }
@@ -141,13 +130,13 @@ public class SignInManager {
      */
     public SignInProvider getPreviouslySignedInProvider() {
     	
-    	Log.d(LOG_TAG, "Providers: " + Collections.singletonList(signInProviders)); 
+    	LOG.log(Level.FINE, "Providers: " + Collections.singletonList(signInProviders)); 
 
         for (final SignInProvider provider : signInProviders.values()) {
             // Note: This method may block. This loop could potentially be sped
             // up by running these calls in parallel using an executorService.
             if (provider.refreshUserSignInState()) {
-            	Log.d(LOG_TAG, "Refreshing provider: " + provider.getDisplayName());
+            	LOG.log(Level.FINE, "Refreshing provider: " + provider.getDisplayName());
                 return provider;
             }
         }
@@ -156,22 +145,16 @@ public class SignInManager {
 
     private class SignInProviderResultAdapter implements SignInProviderResultHandler {
         final private SignInProviderResultHandler handler;
-        final private Activity activity;
 
-        private SignInProviderResultAdapter(final Activity activity,
-                                            final SignInProviderResultHandler handler) {
+        private SignInProviderResultAdapter(final SignInProviderResultHandler handler) {
             this.handler = handler;
-            this.activity = activity;
         }
 
-        private Activity getActivity() {
-            return activity;
-        }
 
         /** {@inheritDoc} */
         @Override
         public void onSuccess(final IdentityProvider provider) {
-            ThreadUtils.runOnUiThread(new Runnable() {
+            Platform.runLater(new Runnable() {
                 @Override
                 public void run() {
                     handler.onSuccess(provider);
@@ -182,7 +165,7 @@ public class SignInManager {
         /** {@inheritDoc} */
         @Override
         public void onCancel(final IdentityProvider provider) {
-            ThreadUtils.runOnUiThread(new Runnable() {
+            Platform.runLater(new Runnable() {
                 @Override
                 public void run() {
                     handler.onCancel(provider);
@@ -193,7 +176,7 @@ public class SignInManager {
         /** {@inheritDoc} */
         @Override
         public void onError(final IdentityProvider provider, final Exception ex) {
-            ThreadUtils.runOnUiThread(new Runnable() {
+            Platform.runLater(new Runnable() {
                 @Override
                 public void run() {
                     handler.onError(provider, ex);
@@ -213,12 +196,10 @@ public class SignInManager {
      * into the loginsMap and setting it with the CredentialsProvider.
      * After setting it, a refresh operation is made to get an identity from Cognito.
      * 
-     * @param activity the calling activity.
      * @param signInProvider the sign-in provider that was previously signed-in.
      * @param resultsHandler the handler to receive results for credential refresh.
      */
-    public void refreshCredentialsWithProvider(final Activity activity,
-                                               final IdentityProvider signInProvider,
+    public void refreshCredentialsWithProvider(final IdentityProvider signInProvider,
                                                final SignInProviderResultHandler resultsHandler) {
 
         if (signInProvider == null) {
@@ -230,7 +211,7 @@ public class SignInManager {
                 new IllegalArgumentException("Given provider not previously logged in."));
         }
 
-        resultsAdapter = new SignInProviderResultAdapter(activity, resultsHandler);
+        resultsAdapter = new SignInProviderResultAdapter(resultsHandler);
         IdentityManager.getDefaultIdentityManager().setProviderResultsHandler(resultsAdapter);
         IdentityManager.getDefaultIdentityManager().federateWithProvider(signInProvider);
     }
@@ -239,12 +220,10 @@ public class SignInManager {
      * Sets the results handler results from sign-in with a provider. Results handlers are
      * always called on the UI thread.
      *
-     * @param activity the calling activity.
      * @param resultsHandler the handler for results from sign-in with a provider.
      */
-    public void setProviderResultsHandler(final Activity activity,
-                                          final SignInProviderResultHandler resultsHandler) {
-        resultsAdapter = new SignInProviderResultAdapter(activity, resultsHandler);
+    public void setProviderResultsHandler(final SignInProviderResultHandler resultsHandler) {
+        resultsAdapter = new SignInProviderResultAdapter(resultsHandler);
         // Set the final results handler with the identity manager.
         IdentityManager.getDefaultIdentityManager().setProviderResultsHandler(resultsAdapter);
     }
@@ -256,13 +235,12 @@ public class SignInManager {
      * @param buttonView the view for the button associated with this provider.
      * @return the onClickListener for the button to be able to override the listener.
      */
-    public View.OnClickListener initializeSignInButton(final Class<? extends SignInProvider> providerClass,
-                                                       final View buttonView) {
+    public Runnable initializeSignInButton(final Class<? extends SignInProvider> providerClass,
+                                                       final Button buttonView) {
         final SignInProvider provider = findProvider(providerClass);
 
         // Initialize the sign in button with the identity manager's results adapter.
-        return provider.initializeSignInButton(resultsAdapter.getActivity(),
-            buttonView, IdentityManager.getDefaultIdentityManager().getResultsAdapter());
+        return provider.initializeSignInButton(buttonView, IdentityManager.getDefaultIdentityManager().getResultsAdapter());
     }
 
     private SignInProvider findProvider(final Class<? extends SignInProvider> providerClass) {
@@ -286,7 +264,7 @@ public class SignInManager {
      */
     public boolean handleActivityResult(final int requestCode, 
                                         final int resultCode, 
-                                        final Intent data) {
+                                        final Object data) {
         for (final SignInProvider provider : signInProviders.values()) {
             if (provider.isRequestCodeOurs(requestCode)) {
                 provider.handleActivityResult(requestCode, resultCode, data);
