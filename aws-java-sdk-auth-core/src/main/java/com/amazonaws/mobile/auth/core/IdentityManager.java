@@ -60,7 +60,7 @@ import javafx.application.Platform;
  * 
  * <pre>
  * // Create IdentityManager and set it as the default instance.
- * IdentityManager idm = new IdentityManager(new AWSConfiguration(getApplicationContext()));
+ * IdentityManager idm = new IdentityManager(new AWSConfiguration());
  * IdentityManager.setDefaultIdentityManager(idm);
  * 
  * // Use IdentityManager to retrieve the {@link com.amazonaws.auth.CognitoCachingCredentialsProvider}
@@ -135,12 +135,6 @@ public class IdentityManager {
     private static IdentityManager defaultIdentityManager = null;
 
     /** 
-     * SharedPreferences key name used to store the short-lived AWS Credentials
-     * by the CognitoCachingCredentialsProvider.
-     */
-    private static final String SHARED_PREF_NAME = "com.amazonaws.android.auth";
-    
-    /** 
      * SharedPreferences key name used to store the expiration date for the 
      * short-lived AWS Credentials.
      */
@@ -150,9 +144,6 @@ public class IdentityManager {
      * Custom Amazon Cognito Identity Provider to handle refreshing the sign-in provider's token.
      */
     private class AWSRefreshingCognitoIdentityProvider extends AWSBasicCognitoIdentityProvider {
-
-        /** Log tag. */
-        private final String LOG_TAG = AWSRefreshingCognitoIdentityProvider.class.getSimpleName();
 
         public AWSRefreshingCognitoIdentityProvider(final String accountId,
                                                     final String identityPoolId,
@@ -178,8 +169,6 @@ public class IdentityManager {
 
     /**
      * Constructor that takes in the application context.
-     * 
-     * @param context the application context.
      */
     public IdentityManager() {
         this.awsConfiguration = null;
@@ -189,7 +178,7 @@ public class IdentityManager {
 
     /**
      * Constructor. 
-     * Initializes with the application context and the AWSConfiguration passed in.
+     * Initializes with the AWSConfiguration passed in.
      * Creates a default ClientConfiguration with the user agent from AWSConfiguration.
      *
      * @param awsConfiguration the aws configuration.
@@ -203,8 +192,7 @@ public class IdentityManager {
 
     /**
      * Constructor.
-     * Initializes with the application context, the AWSConfiguration
-     * and the ClientConfiguration passed in.
+     * Initializes with the AWSConfiguration and the ClientConfiguration passed in.
      * Read the UserAgent from AWSConfiguration and set in ClientConfiguration.
      *
      * @param awsConfiguration the aws configuration.
@@ -658,81 +646,72 @@ public class IdentityManager {
 
         LOG.log(Level.FINE, "Resume Session called.");
         
-        executorService.submit(new Runnable() {
-            public void run() {
-                LOG.log(Level.FINE, "Looking for a previously signed-in session.");
-                final SignInManager signInManager = SignInManager.getInstance();
-                
-                final SignInProvider signInProvider = signInManager.getPreviouslySignedInProvider();
-
-                // if the user was previously signed-in with an sign-in provider and
-                // we are able to verify with the sign-in provider.
-                if (signInProvider != null) {
-                    LOG.log(Level.FINE, "Refreshing credentials with sign-in provider "
+        executorService.submit(() -> {
+            LOG.log(Level.INFO, "Looking for a previously signed-in session.");
+            final SignInManager signInManager = SignInManager.getInstance();
+            
+            final SignInProvider signInProvider = signInManager.getPreviouslySignedInProvider();
+            
+            // if the user was previously signed-in with an sign-in provider and
+            // we are able to verify with the sign-in provider.
+            if (signInProvider != null) {
+                LOG.log(Level.INFO, "Refreshing credentials with sign-in provider "
                         + signInProvider.getDisplayName());
-                    // TODO
-                    throw new UnsupportedOperationException("Not supported yet");
-                    
-                    /*
-                    // Use the token from the previously signed-in session to
-                    // get a AWS Identity using Cognito Federated Identities
-                    // The AWS Identity will be wrapped into the CredentialsProvider
-                    // which will contain short-lived AWS Credentials to access
-                    // AWS resources.             
-                    signInManager.refreshCredentialsWithProvider(signInProvider,
-                            new SignInProviderResultHandler() {
-
-                                @Override
-                                public void onSuccess(final IdentityProvider provider) {
-                                    LOG.log(Level.FINE, "Successfully got AWS Credentials.");
-        
-                                    runAfterStartupAuthDelay(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            startupAuthResultHandler.onComplete(new StartupAuthResult(IdentityManager.this, null));
-                                        }
-                                    });
+                
+                // Use the token from the previously signed-in session to
+                // get a AWS Identity using Cognito Federated Identities
+                // The AWS Identity will be wrapped into the CredentialsProvider
+                // which will contain short-lived AWS Credentials to access
+                // AWS resources.
+                signInManager.refreshCredentialsWithProvider(signInProvider,
+                        new SignInProviderResultHandler() {
+                            
+                            @Override
+                            public void onSuccess(final IdentityProvider provider) {
+                                LOG.log(Level.INFO, "Successfully got AWS Credentials.");
+                                
+                                runAfterStartupAuthDelay(() -> {
+                                    startupAuthResultHandler.onComplete(new StartupAuthResult(IdentityManager.this, null));
+                                });
+                            }
+                            
+                            @Override
+                            public void onCancel(final IdentityProvider provider) {
+                                LOG.log(Level.SEVERE, "Cancel can't happen when handling a previously signed-in user.");
+                            }
+                            
+                            @Override
+                            public void onError(final IdentityProvider provider, final Exception ex) {
+                                LOG.log(Level.WARNING,
+                                        String.format("Federate with Cognito with %s Sign-in provider failed. Error: %s",
+                                                provider.getDisplayName(), ex.getMessage()), ex);
+                                
+                                if (ex instanceof AuthException) {
+                                    completeHandler(startupAuthResultHandler,
+                                            (AuthException) ex);
+                                } else {
+                                    completeHandler(startupAuthResultHandler,
+                                            new AuthException(provider, ex));
                                 }
-        
-                                @Override
-                                public void onCancel(final IdentityProvider provider) {
-                                    LOG.log(Level.SEVERE, "Cancel can't happen when handling a previously signed-in user.");
-                                }
-        
-                                @Override
-                                public void onError(final IdentityProvider provider, final Exception ex) {
-                                    LOG.log(Level.WARNING,
-                                            String.format("Federate with Cognito with %s Sign-in provider failed. Error: %s",
-                                                    provider.getDisplayName(), ex.getMessage()), ex);
-        
-                                    if (ex instanceof AuthException) {
-                                        completeHandler(startupAuthResultHandler,
-                                                (AuthException) ex);
-                                    } else {
-                                        completeHandler(startupAuthResultHandler,
-                                                new AuthException(provider, ex));
-                                    }
-                                }
-                            });
-                    */
-                } else {
-                    // No previously signed-in provider found. No session to resume.
-                    // Notify the user by executing the callback handler.
-                    completeHandler(startupAuthResultHandler, null);
-                }
-
-                if (minimumDelay > 0) {
-                    // Wait for the expiration timeout.
-                    try {
-                        Thread.sleep(minimumDelay);
-                    } catch (final InterruptedException ex) {
-                        LOG.log(Level.INFO, "Interrupted while waiting for resume session timeout.");
-                    }
-                }
-
-                // Expire the resume session timeout.
-                startupAuthTimeoutLatch.countDown();
+                            }
+                        });
+            } else {
+                // No previously signed-in provider found. No session to resume.
+                // Notify the user by executing the callback handler.
+                completeHandler(startupAuthResultHandler, null);
             }
+            
+            if (minimumDelay > 0) {
+                // Wait for the expiration timeout.
+                try {
+                    Thread.sleep(minimumDelay);
+                } catch (final InterruptedException ex) {
+                    LOG.log(Level.INFO, "Interrupted while waiting for resume session timeout.");
+                }
+            }
+            
+            // Expire the resume session timeout.
+            startupAuthTimeoutLatch.countDown();
         });
     }
 
@@ -757,7 +736,7 @@ public class IdentityManager {
      * identity.
      *
      * @param startupAuthResultHandler a handler for returning results.
-     * @deprecated Please use {@link #resumeSession(Activity, StartupAuthResultHandler)} method instead.
+     * @deprecated Please use {@link #resumeSession(StartupAuthResultHandler)} method instead.
      */
     @Deprecated
     public void doStartupAuth(final StartupAuthResultHandler startupAuthResultHandler) {
@@ -811,16 +790,14 @@ public class IdentityManager {
     public void login(final SignInResultHandler signInResultHandler) {
         // Start the sign-in activity. 
         // We do not finish the calling activity allowing the user to navigate back.
-        // TODO
-        throw new UnsupportedOperationException("Not supported yet");
-//        try {
-//            SignInManager
-//                .getInstance()
-//                .setResultHandler(signInResultHandler);
-//        } catch (final Exception exception) {
-//            LOG.log(Level.WARNING, "Error in instantiating SignInManager. " +
-//                           "Check the context and completion handler.", exception);
-//        }
+        try {
+            SignInManager
+                .getInstance()
+                .setResultHandler(signInResultHandler);
+        } catch (final Exception exception) {
+            LOG.log(Level.WARNING, "Error in instantiating SignInManager. " +
+                           "Check the context and completion handler.", exception);
+        }
     }
 
     /**

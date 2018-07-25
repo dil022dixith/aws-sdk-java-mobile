@@ -17,31 +17,24 @@
 
 package com.amazonaws.mobile.auth.ui;
 
-import android.content.Intent;
-import android.content.Context;
-import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
-import android.util.Log;
-
-import com.amazonaws.mobile.auth.core.IdentityManager;
 import com.amazonaws.mobile.auth.core.IdentityProvider;
 import com.amazonaws.mobile.auth.core.SignInResultHandler;
 import com.amazonaws.mobile.auth.core.signin.SignInManager;
 import com.amazonaws.mobile.auth.core.signin.SignInProviderResultHandler;
+import com.gluonhq.charm.glisten.application.MobileApplication;
 
-import com.amazonaws.mobile.auth.core.signin.ui.buttons.SignInButton;
-
-import java.util.HashMap;
-import java.util.UUID;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Activity for handling Sign-in with an Identity Provider.
  */
-public class SignInActivity extends AppCompatActivity {
+public class SignInActivity {
 
-    /** Log Tag. */
-    private static final String LOG_TAG = SignInActivity.class.getSimpleName();
+    private static final Logger LOG = Logger.getLogger(SignInActivity.class.getName());
 
+    private static final String VIEW_NAME = "com.amazonaws.mobile.auth.ui.SignInView";
+    
     /** Reference to the singleton instance of SignInManager. */
     private SignInManager signInManager;
 
@@ -56,16 +49,14 @@ public class SignInActivity extends AppCompatActivity {
          */
         @Override
         public void onSuccess(final IdentityProvider provider) {
-            Log.i(LOG_TAG, String.format(getString(R.string.sign_in_succeeded_message_format),
-                                         provider.getDisplayName()));
+            LOG.log(Level.INFO, SignInView.getString("sign.in.succeeded.message.format", provider.getDisplayName()));
 
             // The sign-in manager is no longer needed once signed in.
             SignInManager.dispose();
             final SignInResultHandler signInResultsHandler = signInManager.getResultHandler();
 
             // Call back the results handler.
-            signInResultsHandler.onSuccess(SignInActivity.this, provider);
-            finish();
+            signInResultsHandler.onSuccess(provider);
         }
 
         /**
@@ -75,10 +66,8 @@ public class SignInActivity extends AppCompatActivity {
          */
         @Override
         public void onCancel(final IdentityProvider provider) {
-            Log.i(LOG_TAG, String.format(getString(R.string.sign_in_canceled_message_format),
-                                         provider.getDisplayName()));
-            signInManager.getResultHandler()
-                .onIntermediateProviderCancel(SignInActivity.this, provider);
+            LOG.log(Level.INFO, SignInView.getString("sign.in.canceled.message.format", provider.getDisplayName()));
+            signInManager.getResultHandler().onIntermediateProviderCancel(provider);
         }
 
         /**
@@ -89,9 +78,8 @@ public class SignInActivity extends AppCompatActivity {
          */
         @Override
         public void onError(final IdentityProvider provider, final Exception ex) {
-            Log.e(LOG_TAG, String.format("Sign-in with %s caused an error.", provider.getDisplayName()), ex);
-            signInManager.getResultHandler()
-                .onIntermediateProviderError(SignInActivity.this, provider, ex);
+            LOG.log(Level.WARNING, SignInView.getString("sign.in.error.message.format", provider.getDisplayName()), ex);
+            signInManager.getResultHandler().onIntermediateProviderError(provider, ex);
         }
     }
 
@@ -100,47 +88,43 @@ public class SignInActivity extends AppCompatActivity {
      * Get the instance of SignInManager and set the callback
      * to be received from SignInManager on signin.
      */
-    @Override
-    protected void onCreate(final Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
+    SignInActivity(final AuthUIConfiguration config) {
         signInManager = SignInManager.getInstance();
         if (signInManager == null) {
-            Log.e(LOG_TAG, "Invoke SignInActivity.startSignInActivity() method to create the SignInManager.");
+            LOG.log(Level.WARNING, "Invoke SignInActivity.startSignInActivity() method to create the SignInManager.");
             return;
         }
-        signInManager.setProviderResultsHandler(this, new SignInProviderResultHandlerImpl());
-        setContentView(R.layout.activity_sign_in);
+        signInManager.setProviderResultsHandler(new SignInProviderResultHandlerImpl());
+        if (config == null) {
+            return;
+        }
+        if (MobileApplication.getInstance() != null) {
+            MobileApplication.getInstance().removeViewFactory(VIEW_NAME);
+            LOG.log(Level.FINE, "Creating SignInView instance"); 
+            MobileApplication.getInstance().addViewFactory(VIEW_NAME, () -> new SignInView(config));
+            LOG.log(Level.FINE, "Switching to SignInView");
+            SignInView.switchView(VIEW_NAME);
+        } else {
+            LOG.log(Level.WARNING, "Failed to create the SignInView instance");
+        }
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-    }
-
-    @Override
     public void onRequestPermissionsResult(final int requestCode,
                                            final String[] permissions,
                                            final int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         signInManager.handleRequestPermissionsResult(requestCode, permissions, grantResults);
     }
 
-    @Override
     protected void onActivityResult(final int requestCode,
                                     final int resultCode,
-                                    final Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
+                                    final Object data) {
         signInManager.handleActivityResult(requestCode, resultCode, data);
     }
 
-    @Override
     public void onBackPressed() {
-        if (signInManager.getResultHandler().onCancel(this)) {
-            super.onBackPressed();
+        if (signInManager.getResultHandler().onCancel()) {
             // Since we are leaving sign-in via back, we can dispose the sign-in manager, since sign-in was cancelled.
             SignInManager.dispose();
-            finish();
         }
     }
 
@@ -148,23 +132,13 @@ public class SignInActivity extends AppCompatActivity {
      * Start the SignInActivity that kicks off the authentication flow
      * by initializing the SignInManager.
      *
-     * @param context The context from which the SignInActivity will be started
      * @param config  Reference to AuthUIConfiguration object
      */
-    public static void startSignInActivity(final Context context,
-                                           final AuthUIConfiguration config) {
+    public static void startSignInActivity(final AuthUIConfiguration config) {
         try {
-            Intent intent = new Intent(context, SignInActivity.class);
-            intent.putExtra(SignInView.CONFIGURATION_KEY, config);
-            intent.putExtra(AuthUIConfiguration.CONFIG_KEY_SIGN_IN_BACKGROUND_COLOR,
-                config.getSignInBackgroundColor(SignInView.DEFAULT_BACKGROUND_COLOR));
-            intent.putExtra(AuthUIConfiguration.CONFIG_KEY_FONT_FAMILY,
-                config.getFontFamily());
-            intent.putExtra(AuthUIConfiguration.CONFIG_KEY_FULL_SCREEN_BACKGROUND,
-                config.isBackgroundColorFullScreen());
-            context.startActivity(intent);
+            new SignInActivity(config);
         } catch (Exception exception) {
-            Log.e(LOG_TAG, "Cannot start the SignInActivity. "
+            LOG.log(Level.WARNING, "Cannot start the SignInActivity. "
               + "Check the context and the configuration object passed in.", exception);
         }
     }
@@ -173,14 +147,12 @@ public class SignInActivity extends AppCompatActivity {
      * Start the SignInActivity that kicks off the authentication flow
      * by initializing the SignInManager.
      *
-     * @param context The context from which the SignInActivity will be started
      */
-    public static void startSignInActivity(final Context context) {
+    public static void startSignInActivity() {
         try {
-            Intent intent = new Intent(context, SignInActivity.class);
-            context.startActivity(intent);
+            new SignInActivity(null);
         } catch (Exception exception) {
-            Log.e(LOG_TAG, "Cannot start the SignInActivity. "
+            LOG.log(Level.WARNING, "Cannot start the SignInActivity. "
               + "Check the context passed in.", exception);
         }
     }

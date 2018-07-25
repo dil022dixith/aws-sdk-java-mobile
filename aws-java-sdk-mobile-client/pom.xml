@@ -32,24 +32,15 @@
       <optional>false</optional>
       <version>2.6.19</version>
     </dependency>
-<!--
+
     <dependency>
-      <groupId>com.amazonaws</groupId>
-      <artifactId>aws-android-sdk-auth-ui</artifactId>
+      <groupId>com.gluonhq</groupId>
+      <artifactId>aws-java-sdk-auth-ui</artifactId>
       <optional>true</optional>
       <version>2.6.19</version>
-      <type>aar</type>
     </dependency>
 
-    <dependency>
-      <groupId>com.android.support</groupId>
-      <artifactId>appcompat-v7</artifactId>
-      <optional>true</optional>
-      <version>23.0.1</version>
-      <type>aar</type>
-    </dependency>
-
-    <dependency>
+<!--    <dependency>
       <groupId>com.amazonaws</groupId>
       <artifactId>aws-android-sdk-auth-google</artifactId>
       <optional>true</optional>
@@ -63,15 +54,14 @@
       <optional>true</optional>
       <version>2.6.19</version>
       <type>aar</type>
-    </dependency>
+    </dependency>-->
 
     <dependency>
-      <groupId>com.amazonaws</groupId>
-      <artifactId>aws-android-sdk-auth-userpools</artifactId>
+      <groupId>com.gluonhq</groupId>
+      <artifactId>aws-java-sdk-auth-userpools</artifactId>
       <optional>true</optional>
       <version>2.6.19</version>
-      <type>aar</type>
-    </dependency>-->
+    </dependency>
 
     <dependency>
       <groupId>com.gluonhq</groupId>

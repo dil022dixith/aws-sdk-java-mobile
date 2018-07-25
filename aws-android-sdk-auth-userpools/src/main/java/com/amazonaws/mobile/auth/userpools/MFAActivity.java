@@ -17,43 +17,60 @@
 
 package com.amazonaws.mobile.auth.userpools;
 
-import android.app.Activity;
-import android.content.Intent;
-import android.os.Bundle;
-import android.util.Log;
-import android.view.View;
+import com.amazonaws.mobile.auth.core.signin.SignInProvider;
+import com.gluonhq.charm.glisten.application.MobileApplication;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-import com.amazonaws.mobile.auth.userpools.R;
 
 /**
  * Activity to prompt for a a verification code.
  */
-public class MFAActivity extends Activity {
-    /** Log tag. */
-    private static final String LOG_TAG = MFAActivity.class.getSimpleName();
-    private MFAView mfaView;
+public class MFAActivity {
+    
+    private static final Logger LOG = Logger.getLogger(MFAActivity.class.getName());
 
-    @Override
-    protected void onCreate(final Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_mfa);
-        mfaView = (MFAView) findViewById(R.id.mfa_view);
+    private static final String VIEW_NAME = "com.amazonaws.mobile.auth.userpools.MFAView";
+    
+    private MFAView mfaView;
+    
+    private final SignInProvider provider;
+
+    public MFAActivity(SignInProvider provider) {
+        this.provider = provider;
+    }
+    
+    public void show() {
+        if (MobileApplication.getInstance() != null) {
+            MobileApplication.getInstance().removeViewFactory(VIEW_NAME);
+            LOG.log(Level.FINE, "Creating MFAView instance"); 
+            MobileApplication.getInstance().addViewFactory(VIEW_NAME, () -> {
+                mfaView = new MFAView(MFAActivity.this);
+                return mfaView;
+            });
+            LOG.log(Level.FINE, "Switching to MFAView");
+            GluonView.switchView(VIEW_NAME);
+        } else {
+            LOG.log(Level.WARNING, "Failed to create the MFAView instance");
+        }
     }
 
     /**
      * Retrieve input and return to caller.
-     * @param view the Android View
      */
-    public void verify(final View view) {
+    public void verify() {
         final String verificationCode = mfaView.getMFACode();
 
-        Log.d(LOG_TAG, "verificationCode = " + verificationCode);
+        LOG.log(Level.FINE, "verificationCode = " + verificationCode);
 
-        final Intent intent = new Intent();
-        intent.putExtra(CognitoUserPoolsSignInProvider.AttributeKeys.VERIFICATION_CODE, verificationCode);
-
-        setResult(RESULT_OK, intent);
-
-        finish();
+        final Map<String, String> result = new HashMap<>();
+        result.put(CognitoUserPoolsSignInProvider.AttributeKeys.VERIFICATION_CODE, verificationCode);
+        provider.handleActivityResult(CognitoUserPoolsSignInProvider.MFA_REQUEST_CODE, 0, result);
+        if (MobileApplication.getInstance() != null) {
+            MobileApplication.getInstance().switchToPreviousView();
+        }
     }
+    
 }

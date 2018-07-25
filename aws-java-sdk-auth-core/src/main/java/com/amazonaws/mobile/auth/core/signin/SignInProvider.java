@@ -45,8 +45,6 @@ public interface SignInProvider extends IdentityProvider {
      * Initialize the sign-in button for the sign-in activity.
      * @param buttonView the button
      * @param resultsHandler the resultsHandler for provider sign-in.
-     * @return the onClickListener for the button to be able to override the listener,
-     *         and null if the button cannot be initialized.
      */
-    Runnable initializeSignInButton(Button buttonView, SignInProviderResultHandler resultsHandler);
+    void initializeSignInButton(Button buttonView, SignInProviderResultHandler resultsHandler);
 }

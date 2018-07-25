@@ -17,159 +17,53 @@
 
 package com.amazonaws.mobile.auth.userpools;
 
-import android.app.Activity;
-import android.content.Context;
-import android.content.Intent;
-import android.content.res.TypedArray;
-import android.graphics.Color;
-import android.graphics.Typeface;
-import android.support.annotation.Nullable;
-import android.text.InputType;
-import android.util.AttributeSet;
-import android.util.Log;
-import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.LinearLayout;
-
-import com.amazonaws.mobile.config.AWSConfiguration;
-
-import com.amazonaws.mobile.auth.core.IdentityManager;
-import com.amazonaws.mobile.auth.core.signin.SignInManager;
-import com.amazonaws.mobile.auth.core.signin.ui.DisplayUtils;
-import com.amazonaws.mobile.auth.core.signin.ui.BackgroundDrawable;
-import com.amazonaws.mobile.auth.core.signin.ui.SplitBackgroundDrawable;
-
-import com.amazonaws.mobile.auth.userpools.R;
-
-import static com.amazonaws.mobile.auth.userpools.UserPoolFormConstants.FORM_BUTTON_COLOR;
-import static com.amazonaws.mobile.auth.userpools.UserPoolFormConstants.FORM_BUTTON_CORNER_RADIUS;
-import static com.amazonaws.mobile.auth.userpools.UserPoolFormConstants.FORM_SIDE_MARGIN_RATIO;
-import static com.amazonaws.mobile.auth.userpools.UserPoolFormConstants.MAX_FORM_WIDTH_IN_PIXELS;
+import com.gluonhq.charm.glisten.control.AppBar;
+import com.gluonhq.charm.glisten.control.TextField;
+import java.util.logging.Level;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
 
 /**
  * View for showing MFA confirmation upon sign-in.
  */
-public class MFAView extends LinearLayout {
+public class MFAView extends GluonView {
 
-    /** Log tag. */
-    private static final String LOG_TAG = MFAView.class.getSimpleName();
+    private final TextField mfaCodeEditText;
+    private final Button confirmButton;
+    private final MFAActivity activity;
 
-    private FormView mfaForm;
-    private EditText mfaCodeEditText;
-    private Button confirmButton;
-    
-    private SplitBackgroundDrawable splitBackgroundDrawable;
-    private BackgroundDrawable backgroundDrawable;
-    private String fontFamily;
-    private boolean fullScreenBackgroundColor;
-    private Typeface typeFace;
-    private int backgroundColor;
-
-   /**
-    * Constructs the MFA View.
-    * @param context The activity context.
-    */
-    public MFAView(Context context) {
-        this(context, null);
-    }
-
-   /**
-    * Constructs the MFA View.
-    * @param context The activity context.
-    * @param attrs The Attribute Set for the view from which the resources can be accessed.
-    */
-    public MFAView(Context context, @Nullable AttributeSet attrs) {
-        this(context, attrs, 0);
-    }
-
-   /**
-    * Constructs the MFA View.
-    * @param context The activity context.
-    * @param attrs The Attribute Set for the view from which the resources can be accessed.
-    * @param defStyleAttr The resource identifier for the default style attribute.
-    */
-    public MFAView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
-        super(context, attrs, defStyleAttr);
-        setOrientation(VERTICAL);
-        final int backgroundColor;
+    /**
+     * Constructs the ForgotPassword View.
+     * @param activity
+     */
+    public MFAView(MFAActivity activity) {
+        this.activity = activity;
         
-        if (isInEditMode()) {
-            backgroundColor = Color.DKGRAY;
-        } else {
-            final TypedArray styledAttributes = context.obtainStyledAttributes(attrs, R.styleable.MFAView);
-            backgroundColor = styledAttributes.getInt(R.styleable.MFAView_mfaViewBackgroundColor, Color.DKGRAY);
-            styledAttributes.recycle();
-        }
-
-        this.fontFamily = CognitoUserPoolsSignInProvider.getFontFamily();
-        this.typeFace = Typeface.create(this.fontFamily, Typeface.NORMAL);
-        this.fullScreenBackgroundColor = CognitoUserPoolsSignInProvider.isBackgroundColorFullScreen();
-        this.backgroundColor = CognitoUserPoolsSignInProvider.getBackgroundColor();
-
-        if (fullScreenBackgroundColor) {
-            this.backgroundDrawable = new BackgroundDrawable(this.backgroundColor);
-        } else {
-            this.splitBackgroundDrawable = new SplitBackgroundDrawable(0, this.backgroundColor);
-        }
-    }
-
-    private void setupFontFamily() {
-        if (this.typeFace != null) {
-            Log.d(LOG_TAG, "Setup font in MFAView: " + this.fontFamily);
-            mfaCodeEditText.setTypeface(typeFace);
-        }
+        mfaCodeEditText = new TextField();
+        mfaCodeEditText.setFloatText(getString("forgot.password.input.code.hint"));
+        confirmButton = new Button(getString("verify.button.text"));
+        confirmButton.setOnAction(e -> {
+            LOG.log(Level.FINE, "confirmButton event");
+            MFAView.this.activity.verify();
+        });
+        
+        Label title = new Label(getString("mfa.header"));
+        title.getStyleClass().add("title");
+        Label help = new Label(getString("mfa.code.sent.message"));
+        help.getStyleClass().add("help");
+        help.setWrapText(true);
+        
+        addNodes(title, help, mfaCodeEditText, confirmButton);
     }
 
     @Override
-    protected void onFinishInflate() {
-        super.onFinishInflate();
-        mfaForm = (FormView) findViewById(R.id.mfa_form);
-
-        mfaCodeEditText = mfaForm.addFormField(getContext(),
-            InputType.TYPE_CLASS_NUMBER,
-            getContext().getString(R.string.forgot_password_input_code_hint));
-
-        setupFontFamily();
-        setupVerifyButtonColor();
+    protected void updateAppBar(AppBar appBar) {
+       super.updateAppBar(appBar);
+        appBar.setTitleText(getString("title.activity.mfa"));
     }
 
-    private void setupVerifyButtonColor() {
-        confirmButton = (Button) findViewById(R.id.mfa_button);
-        confirmButton.setBackgroundDrawable(
-            DisplayUtils.getRoundedRectangleBackground(FORM_BUTTON_CORNER_RADIUS, FORM_BUTTON_COLOR));
-        final LayoutParams signUpButtonLayoutParams = (LayoutParams) confirmButton.getLayoutParams();
-        signUpButtonLayoutParams.setMargins(
-            mfaForm.getFormShadowMargin(),
-            signUpButtonLayoutParams.topMargin,
-            mfaForm.getFormShadowMargin(),
-            signUpButtonLayoutParams.bottomMargin);
+    String getMFACode() {
+        return mfaCodeEditText.getText();
     }
 
-    @Override
-    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        final int parentWidth = MeasureSpec.getSize(widthMeasureSpec);
-        final int maxWidth = Math.min((int)(parentWidth * FORM_SIDE_MARGIN_RATIO), MAX_FORM_WIDTH_IN_PIXELS);
-        super.onMeasure(MeasureSpec.makeMeasureSpec(maxWidth, MeasureSpec.AT_MOST), heightMeasureSpec);
-    }
-
-    @Override
-    protected void onLayout(boolean changed, int l, int t, int r, int b) {
-        super.onLayout(changed, l, t, r, b);
-        setupBackground();
-    }
-
-    private void setupBackground() {
-        if (!this.fullScreenBackgroundColor) {
-            splitBackgroundDrawable.setSplitPointDistanceFromTop(mfaForm.getTop()
-                + (mfaForm.getMeasuredHeight()/2));
-            ((ViewGroup) getParent()).setBackgroundDrawable(splitBackgroundDrawable);
-        } else {
-            ((ViewGroup) getParent()).setBackgroundDrawable(backgroundDrawable);
-        }
-    }
-
-    public String getMFACode() {
-        return mfaCodeEditText.getText().toString();
-    }
 }

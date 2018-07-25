@@ -17,9 +17,6 @@
 
 package com.amazonaws.mobileconnectors.cognitoidentityprovider.continuations;
 
-import android.content.Context;
-import android.os.Handler;
-
 import com.amazonaws.mobileconnectors.cognitoidentityprovider.CognitoUser;
 import com.amazonaws.mobileconnectors.cognitoidentityprovider.handlers.AuthenticationHandler;
 import com.amazonaws.mobileconnectors.cognitoidentityprovider.util.CognitoServiceConstants;
@@ -46,7 +43,6 @@ public class ChallengeContinuation implements CognitoIdentityProviderContinuatio
     public static final boolean RUN_IN_CURRENT = false;
 
     private final RespondToAuthChallengeResult challengeResult;
-    private final Context context;
     private final String clientId;
     private final String secretHash;
     private final CognitoUser user;
@@ -59,7 +55,6 @@ public class ChallengeContinuation implements CognitoIdentityProviderContinuatio
      * Constructs a continuation for a challenge to be presented to the user.
      *  
      * @param user REQUIRED: Reference to the user being authenticated. 
-     * @param context REQUIRED: Android application context.
      * @param username REQUIRED: Username used for this auth attempt.
      * @param clientId REQUIRED: Cognito App Id 
      * @param secretHash REQUIRED: Hash of the App Secret 
@@ -69,7 +64,6 @@ public class ChallengeContinuation implements CognitoIdentityProviderContinuatio
      * @param callback REQUIRED: Reference to the callback handler. 
      */
     public ChallengeContinuation(CognitoUser user,
-                                 Context context,
                                  String username,
                                  String clientId,
                                  String secretHash,
@@ -77,7 +71,6 @@ public class ChallengeContinuation implements CognitoIdentityProviderContinuatio
                                  boolean runInBackground,
                                  AuthenticationHandler callback) {
         this.challengeResult = challengeResult;
-        this.context = context;
         this.clientId = clientId;
         this.secretHash = secretHash;
         this.user = user;
@@ -141,35 +134,21 @@ public class ChallengeContinuation implements CognitoIdentityProviderContinuatio
         respondToAuthChallengeRequest.setClientId(clientId);
         respondToAuthChallengeRequest.setChallengeResponses(challengeResponses);
         if (runInBackground) {
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    final Handler handler = new Handler(context.getMainLooper());
-                    Runnable nextStep;
-                    try {
-                        nextStep = user.respondToChallenge(respondToAuthChallengeRequest, callback, RUN_IN_BACKGROUND);
-                    } catch (final Exception e) {
-                        nextStep = new Runnable() {
-                            @Override
-                            public void run() {
-                                callback.onFailure(e);
-                            }
-                        };
-                    }
-                    handler.post(nextStep);
+            new Thread(() -> {
+                Runnable nextStep;
+                try {
+                    nextStep = user.respondToChallenge(respondToAuthChallengeRequest, callback, RUN_IN_BACKGROUND);
+                } catch (final Exception e) {
+                    nextStep = () -> callback.onFailure(e);
                 }
+                nextStep.run();
             }).start();
         } else {
             Runnable nextStep;
             try {
                 nextStep = user.respondToChallenge(respondToAuthChallengeRequest, callback, RUN_IN_CURRENT);
             } catch (final Exception e) {
-                nextStep = new Runnable() {
-                    @Override
-                    public void run() {
-                        callback.onFailure(e);
-                    }
-                };
+                nextStep = () -> callback.onFailure(e);
             }
             nextStep.run();
         }

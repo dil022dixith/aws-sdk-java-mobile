@@ -17,44 +17,60 @@
 
 package com.amazonaws.mobile.auth.userpools;
 
-import android.app.Activity;
-import android.content.Intent;
-import android.os.Bundle;
-import android.util.Log;
-import android.view.View;
+import com.amazonaws.mobile.auth.core.signin.SignInProvider;
+import com.gluonhq.charm.glisten.application.MobileApplication;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Activity to prompt for a new password along with the verification code.
  */
-public class ForgotPasswordActivity extends Activity {
-    /** Log tag. */
-    private static final String LOG_TAG = ForgotPasswordActivity.class.getSimpleName();
+public class ForgotPasswordActivity {
 
+    private static final Logger LOG = Logger.getLogger(ForgotPasswordActivity.class.getName());
+
+    private static final String VIEW_NAME = "com.amazonaws.mobile.auth.userpools.ForgotPasswordView";
+    
     private ForgotPasswordView forgotPasswordView;
+    
+    private final SignInProvider provider;
 
-    @Override
-    protected void onCreate(final Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_forgot_password);
-        forgotPasswordView = (ForgotPasswordView) findViewById(R.id.forgot_password_view);
+    public ForgotPasswordActivity(SignInProvider provider) {
+        this.provider = provider;
+    }
+    
+    public void show() {
+        if (MobileApplication.getInstance() != null) {
+            MobileApplication.getInstance().removeViewFactory(VIEW_NAME);
+            LOG.log(Level.FINE, "Creating ForgotPasswordView instance"); 
+            MobileApplication.getInstance().addViewFactory(VIEW_NAME, () -> {
+                forgotPasswordView = new ForgotPasswordView(ForgotPasswordActivity.this);
+                return forgotPasswordView;
+            });
+            LOG.log(Level.FINE, "Switching to ForgotPasswordView");
+            GluonView.switchView(VIEW_NAME);
+        } else {
+            LOG.log(Level.WARNING, "Failed to create the ForgotPasswordView instance");
+        }
     }
 
     /**
      * Retrieve input and return to caller.
-     * @param view the Android View
      */
-    public void forgotPassword(final View view) {
+    public void forgotPassword() {
         final String password = forgotPasswordView.getPassword();
         final String verificationCode = forgotPasswordView.getVerificationCode();
 
-        Log.d(LOG_TAG, "verificationCode = " + verificationCode);
+        LOG.log(Level.FINE, "verificationCode = " + verificationCode);
 
-        final Intent intent = new Intent();
-        intent.putExtra(CognitoUserPoolsSignInProvider.AttributeKeys.PASSWORD, password);
-        intent.putExtra(CognitoUserPoolsSignInProvider.AttributeKeys.VERIFICATION_CODE, verificationCode);
-
-        setResult(RESULT_OK, intent);
-
-        finish();
+        final Map<String, String> result = new HashMap<>();
+        result.put(CognitoUserPoolsSignInProvider.AttributeKeys.PASSWORD, password);
+        result.put(CognitoUserPoolsSignInProvider.AttributeKeys.VERIFICATION_CODE, verificationCode);
+        provider.handleActivityResult(CognitoUserPoolsSignInProvider.FORGOT_PASSWORD_REQUEST_CODE, 0, result);
+        if (MobileApplication.getInstance() != null) {
+            MobileApplication.getInstance().switchToPreviousView();
+        }
     }
 }

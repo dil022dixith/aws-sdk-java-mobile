@@ -17,12 +17,11 @@
 
 package com.amazonaws.mobileconnectors.cognitoidentityprovider.util;
 
-import android.content.Context;
-import android.content.SharedPreferences;
-import android.os.Build;
-
 import com.amazonaws.util.Base64;
 import com.amazonaws.util.StringUtils;
+import com.gluonhq.charm.down.Services;
+import com.gluonhq.charm.down.plugins.DeviceService;
+import com.gluonhq.charm.down.plugins.SettingsService;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -51,6 +50,18 @@ public final class CognitoDeviceHelper {
     public static final int DEFAULT_DEVICE_PAGINATION_LIMIT = 10;
 
     static deviceSRP srpCalculator = null;
+    
+    static SettingsService cipCachedDeviceDetails;
+    static {
+        try {
+            cipCachedDeviceDetails = Services.get(SettingsService.class)
+                .orElseThrow(() -> {
+                    throw new RuntimeException("Error accessing Settings Service");
+            });
+        } catch (Throwable ex) {
+            LOGGER.error("Error while reading from Preferences", ex);
+        }
+    }
 
     /**
      * Uses the Android class {@link android.os.build} to return the model of
@@ -59,7 +70,9 @@ public final class CognitoDeviceHelper {
      * @return Device model name, which is also the name of the device.
      */
     public static String getDeviceName() {
-        return Build.MODEL;
+        return Services.get(DeviceService.class)
+                .map(DeviceService::getModel)
+                .orElse("Unknown device name");    
     }
 
     /**
@@ -68,15 +81,12 @@ public final class CognitoDeviceHelper {
      *
      * @param username          REQUIRED: The current user.
      * @param userPoolId        REQUIRED: Client ID of the application.
-     * @param context           REQUIRED: Application context.
      * @return device key as String, null if the device-key is not available.
      */
-    public static String getDeviceKey(String username, String userPoolId, Context context) {
+    public static String getDeviceKey(String username, String userPoolId) {
         try {
-            final SharedPreferences cipCachedDeviceDetails = context.getSharedPreferences(getDeviceDetailsCacheForUser(username, userPoolId), 0);
-            if (cipCachedDeviceDetails != null && cipCachedDeviceDetails.contains(COGNITO_DEVICE_KEY)) {
-                return cipCachedDeviceDetails.getString(COGNITO_DEVICE_KEY, null);
-            }
+            String user = getDeviceDetailsCacheForUser(username, userPoolId);
+            return cipCachedDeviceDetails.retrieve(user + "." + COGNITO_DEVICE_KEY);
         } catch (final Exception e) {
             LOGGER.error("Error accessing SharedPreferences", e);
         }
@@ -89,15 +99,12 @@ public final class CognitoDeviceHelper {
      *
      * @param username          REQUIRED: The current user.
      * @param userPoolId        REQUIRED: Client ID of the application.
-     * @param context           REQUIRED: Application context.
      * @return device secret as String, null if the device-key is not available.
      */
-    public static String getDeviceSecret(String username, String userPoolId, Context context) {
+    public static String getDeviceSecret(String username, String userPoolId) {
         try {
-            final SharedPreferences cipCachedDeviceDetails = context.getSharedPreferences(getDeviceDetailsCacheForUser(username, userPoolId), 0);
-            if (cipCachedDeviceDetails != null && cipCachedDeviceDetails.contains(COGNITO_DEVICE_SECRET)) {
-                return cipCachedDeviceDetails.getString(COGNITO_DEVICE_SECRET, null);
-            }
+            String user = getDeviceDetailsCacheForUser(username, userPoolId);
+            return cipCachedDeviceDetails.retrieve(user + "." + COGNITO_DEVICE_SECRET);
         } catch (final Exception e) {
             LOGGER.error("Error accessing SharedPreferences", e);
         }
@@ -110,15 +117,12 @@ public final class CognitoDeviceHelper {
      *
      * @param username          REQUIRED: The current user.
      * @param userPoolId        REQUIRED: Client ID of the application.
-     * @param context           REQUIRED: Application context.
      * @return device group key as String, null if the device-key is not available.
      */
-    public static String getDeviceGroupKey(String username, String userPoolId, Context context) {
+    public static String getDeviceGroupKey(String username, String userPoolId) {
         try {
-            final SharedPreferences cipCachedDeviceDetails = context.getSharedPreferences(getDeviceDetailsCacheForUser(username, userPoolId), 0);
-            if (cipCachedDeviceDetails != null && cipCachedDeviceDetails.contains(COGNITO_DEVICE_GROUP_KEY)) {
-                return cipCachedDeviceDetails.getString(COGNITO_DEVICE_GROUP_KEY, null);
-            }
+            String user = getDeviceDetailsCacheForUser(username, userPoolId);
+            return cipCachedDeviceDetails.retrieve(user + "." + COGNITO_DEVICE_GROUP_KEY);
         } catch (final Exception e) {
             LOGGER.error("Error accessing SharedPreferences", e);
         }
@@ -132,12 +136,11 @@ public final class CognitoDeviceHelper {
      * @param username          REQUIRED: The current user.
      * @param userPoolId        REQUIRED: Client ID of the device.
      * @param deviceKey         REQUIRED: Cognito assigned device key.
-     * @param context           REQUIRED: App context, needed to access device datastore.
      */
-    public static void cacheDeviceKey(String username, String userPoolId, String deviceKey, Context context) {
+    public static void cacheDeviceKey(String username, String userPoolId, String deviceKey) {
         try {
-            final SharedPreferences cipCachedDeviceDetails = context.getSharedPreferences(getDeviceDetailsCacheForUser(username, userPoolId), 0);
-            cipCachedDeviceDetails.edit().putString(COGNITO_DEVICE_KEY, deviceKey).apply();
+            String user = getDeviceDetailsCacheForUser(username, userPoolId);
+            cipCachedDeviceDetails.store(user + "." + COGNITO_DEVICE_KEY, deviceKey);
         } catch (final Exception e) {
             LOGGER.error("Error accessing SharedPreferences", e);
         }
@@ -150,12 +153,11 @@ public final class CognitoDeviceHelper {
      * @param username          REQUIRED: The current user.
      * @param userPoolId        REQUIRED: Client ID of the device.
      * @param deviceSecret      REQUIRED: Cognito assigned device key.
-     * @param context           REQUIRED: App context, needed to access device datastore.
      */
-    public static void cacheDeviceVerifier(String username, String userPoolId, String deviceSecret, Context context) {
+    public static void cacheDeviceVerifier(String username, String userPoolId, String deviceSecret) {
         try {
-            final SharedPreferences cipCachedDeviceDetails = context.getSharedPreferences(getDeviceDetailsCacheForUser(username, userPoolId), 0);
-            cipCachedDeviceDetails.edit().putString(COGNITO_DEVICE_SECRET, deviceSecret).apply();
+            String user = getDeviceDetailsCacheForUser(username, userPoolId);
+            cipCachedDeviceDetails.store(user + "." + COGNITO_DEVICE_SECRET, deviceSecret);
         } catch (final Exception e) {
             LOGGER.error("Error accessing SharedPreferences", e);
         }
@@ -168,12 +170,11 @@ public final class CognitoDeviceHelper {
      * @param username          REQUIRED: The current user.
      * @param userPoolId        REQUIRED: Client ID of the device.
      * @param deviceGroupKey    REQUIRED: Cognito assigned device group key.
-     * @param context           REQUIRED: App context, needed to access device datastore.
      */
-    public static void cacheDeviceGroupKey(String username, String userPoolId, String deviceGroupKey, Context context) {
+    public static void cacheDeviceGroupKey(String username, String userPoolId, String deviceGroupKey) {
         try {
-            final SharedPreferences cipCachedDeviceDetails = context.getSharedPreferences(getDeviceDetailsCacheForUser(username, userPoolId), 0);
-            cipCachedDeviceDetails.edit().putString(COGNITO_DEVICE_GROUP_KEY, deviceGroupKey).apply();
+            String user = getDeviceDetailsCacheForUser(username, userPoolId);
+            cipCachedDeviceDetails.store(user + "." + COGNITO_DEVICE_GROUP_KEY, deviceGroupKey);
         } catch (final Exception e) {
             LOGGER.error("Error accessing SharedPreferences", e);
         }
@@ -184,12 +185,13 @@ public final class CognitoDeviceHelper {
      *
      * @param username          REQUIRED: The current user.
      * @param userPoolId        REQUIRED: Client ID of the device.
-     * @param context           REQUIRED: App context, needed to access device datastore.
      */
-    public static void clearCachedDevice(String username, String userPoolId, Context context) {
+    public static void clearCachedDevice(String username, String userPoolId) {
         try {
-            final SharedPreferences cipCachedDeviceDetails = context.getSharedPreferences(getDeviceDetailsCacheForUser(username, userPoolId), 0);
-            cipCachedDeviceDetails.edit().clear().apply();
+            String user = getDeviceDetailsCacheForUser(username, userPoolId);
+            cipCachedDeviceDetails.remove(user + "." + COGNITO_DEVICE_KEY);
+            cipCachedDeviceDetails.remove(user + "." + COGNITO_DEVICE_SECRET);
+            cipCachedDeviceDetails.remove(user + "." + COGNITO_DEVICE_GROUP_KEY);
         } catch (final Exception e) {
             LOGGER.error("Error accessing SharedPreferences", e);
         }

@@ -15,23 +15,20 @@
   * limitations under the License.
   */
 
-package com.amazonaws.mobile.auth.userpools;
+package com.amazonaws.mobile.auth.core.signin.ui.buttons;
 
-import static com.amazonaws.mobile.auth.core.signin.ui.DisplayUtils.dp;
+import javafx.scene.control.Button;
+
 
 /**
- * Common constants for user pool forms.
+ * Base class for Sign in Buttons
  */
-public final class UserPoolFormConstants {
-    /** Form Button Color. */
-    public static final int FORM_BUTTON_COLOR = 0xff4599ff;
+public class SignInButton extends Button {
 
-    /** Form button radius in pixels. */
-    public  static final int FORM_BUTTON_CORNER_RADIUS = dp(5);
+    /**
+     * Constructor.
+     */
+    public SignInButton() {
+    }
 
-    /** Ratio for the form size relative to the parent view. */
-    public static final double FORM_SIDE_MARGIN_RATIO = 0.85;
-
-    /** Maximum width of the form in pixels. */
-    public static final int MAX_FORM_WIDTH_IN_PIXELS = dp(300);
 }

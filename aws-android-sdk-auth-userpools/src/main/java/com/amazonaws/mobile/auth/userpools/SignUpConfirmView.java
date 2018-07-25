@@ -17,167 +17,64 @@
 
 package com.amazonaws.mobile.auth.userpools;
 
-import android.app.Activity;
-import android.content.Context;
-import android.content.Intent;
-import android.content.res.TypedArray;
-import android.graphics.Color;
-import android.graphics.Typeface;
-import android.support.annotation.Nullable;
-import android.text.InputType;
-import android.util.AttributeSet;
-import android.util.Log;
-import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.LinearLayout;
-
-import com.amazonaws.mobile.config.AWSConfiguration;
-
-import com.amazonaws.mobile.auth.core.IdentityManager;
-import com.amazonaws.mobile.auth.core.signin.SignInManager;
-import com.amazonaws.mobile.auth.core.signin.ui.DisplayUtils;
-import com.amazonaws.mobile.auth.core.signin.ui.BackgroundDrawable;
-import com.amazonaws.mobile.auth.core.signin.ui.SplitBackgroundDrawable;
-
-import com.amazonaws.mobile.auth.userpools.R;
-
-import static com.amazonaws.mobile.auth.userpools.UserPoolFormConstants.FORM_BUTTON_COLOR;
-import static com.amazonaws.mobile.auth.userpools.UserPoolFormConstants.FORM_BUTTON_CORNER_RADIUS;
-import static com.amazonaws.mobile.auth.userpools.UserPoolFormConstants.FORM_SIDE_MARGIN_RATIO;
-import static com.amazonaws.mobile.auth.userpools.UserPoolFormConstants.MAX_FORM_WIDTH_IN_PIXELS;
+import com.gluonhq.charm.glisten.control.AppBar;
+import com.gluonhq.charm.glisten.control.TextField;
+import java.util.logging.Level;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
 
 /**
  * This view presents the confirmation screen for user sign up.
  */
-public class SignUpConfirmView extends LinearLayout {
+public class SignUpConfirmView extends GluonView {
 
-    /** Log tag. */
-    private static final String LOG_TAG = SignUpConfirmView.class.getSimpleName();
+    private final TextField userNameEditText;
+    private final TextField confirmCodeEditText;
+    private final Button confirmButton;
+    private final SignUpConfirmActivity activity;
 
-    private FormView confirmForm;
-    private EditText userNameEditText;
-    private EditText confirmCodeEditText;
-
-    private Button confirmButton;
-    private SplitBackgroundDrawable splitBackgroundDrawable;
-    private BackgroundDrawable backgroundDrawable;
-    private String fontFamily;
-    private boolean fullScreenBackgroundColor;
-    private Typeface typeFace;
-    private int backgroundColor;
-
-   /**
-    * Constructs the SignUpConfirm View.
-    * @param context The activity context.
-    */
-    public SignUpConfirmView(final Context context) {
-        this(context, null);
-    }
-
-   /**
-    * Constructs the SignUpConfirm View.
-    * @param context The activity context.
-    * @param attrs The Attribute Set for the view from which the resources can be accessed.
-    */
-    public SignUpConfirmView(final Context context, @Nullable final AttributeSet attrs) {
-        this(context, attrs, 0);
-    }
-
-   /**
-    * Constructs the SignUpConfirm View.
-    * @param context The activity context.
-    * @param attrs The Attribute Set for the view from which the resources can be accessed.
-    * @param defStyleAttr The resource identifier for the default style attribute.
-    */
-    public SignUpConfirmView(final Context context, @Nullable final AttributeSet attrs, final int defStyleAttr) {
-        super(context, attrs, defStyleAttr);
-        setOrientation(VERTICAL);
-        final int backgroundColor;
-        if (isInEditMode()) {
-            backgroundColor = Color.DKGRAY;
-        } else {
-            final TypedArray styledAttributes = context.obtainStyledAttributes(attrs, R.styleable.SignUpConfirmView);
-            backgroundColor = styledAttributes.getInt(R.styleable.SignUpConfirmView_signUpConfirmViewBackgroundColor, Color.DKGRAY);
-            styledAttributes.recycle();
-        }
-
-        this.fontFamily = CognitoUserPoolsSignInProvider.getFontFamily();
-        this.typeFace = Typeface.create(this.fontFamily, Typeface.NORMAL);
-        this.fullScreenBackgroundColor = CognitoUserPoolsSignInProvider.isBackgroundColorFullScreen();
-        this.backgroundColor = CognitoUserPoolsSignInProvider.getBackgroundColor();
-
-        if (this.fullScreenBackgroundColor) {
-            this.backgroundDrawable = new BackgroundDrawable(this.backgroundColor);
-        } else {
-            this.splitBackgroundDrawable = new SplitBackgroundDrawable(0, this.backgroundColor);
-        }
-    }
-
-    private void setupFontFamily() {
-        if (this.typeFace != null) {
-            Log.d(LOG_TAG, "Setup font in SignUpConfirmView: " + this.fontFamily);
-            userNameEditText.setTypeface(this.typeFace);
-            confirmCodeEditText.setTypeface(this.typeFace);
-        }
+    /**
+     * Constructs the SignUpConfirmView View.
+     * @param activity
+     */
+    public SignUpConfirmView(SignUpConfirmActivity activity) {
+        this.activity = activity;
+        confirmCodeEditText = new TextField();
+        confirmCodeEditText.setFloatText(getString("sign.up.confirm.code"));
+        userNameEditText = new TextField();
+        userNameEditText.setFloatText(getString("username.text"));
+        confirmButton = new Button(getString("sign.up.confirm.text"));
+        confirmButton.setOnAction(e -> {
+            LOG.log(Level.FINE, "confirmButton event");
+            SignUpConfirmView.this.activity.confirmAccount();
+        });
+        
+        Label title = new Label(getString("sign.up.confirm.title"));
+        title.getStyleClass().add("title");
+        Label help = new Label(getString("sign.up.confirm.code.sent") +"\n\n" + getString("sign.up.confirm.enter.code"));
+        help.getStyleClass().add("help");
+        help.setWrapText(true);
+        
+        addNodes(title, help, confirmCodeEditText, userNameEditText, confirmButton);
     }
 
     @Override
-    protected void onFinishInflate() {
-        super.onFinishInflate();
-        confirmForm = (FormView) findViewById(R.id.signup_confirm_form);
-        userNameEditText = confirmForm.addFormField(getContext(),
-            InputType.TYPE_CLASS_TEXT| InputType.TYPE_TEXT_VARIATION_PERSON_NAME,
-            getContext().getString(R.string.username_text));
-
-        confirmCodeEditText = confirmForm.addFormField(getContext(),
-            InputType.TYPE_CLASS_NUMBER,
-            getContext().getString(R.string.sign_up_confirm_code));
-
-        setupConfirmButtonColor();
-        setupFontFamily();
+    protected void updateAppBar(AppBar appBar) {
+        super.updateAppBar(appBar);
+        appBar.setTitleText(getString("title.activity.sign.up.confirm"));
+    }
+    
+    void setUserName(String value) {
+        userNameEditText.setText(value);
+        userNameEditText.requestFocus();
     }
 
-    private void setupConfirmButtonColor() {
-        confirmButton = (Button) findViewById(R.id.confirm_account_button);
-        confirmButton.setBackgroundDrawable(DisplayUtils.getRoundedRectangleBackground(
-            FORM_BUTTON_CORNER_RADIUS, FORM_BUTTON_COLOR));
-        final LayoutParams signUpButtonLayoutParams = (LayoutParams) confirmButton.getLayoutParams();
-        signUpButtonLayoutParams.setMargins(
-            confirmForm.getFormShadowMargin(),
-            signUpButtonLayoutParams.topMargin,
-            confirmForm.getFormShadowMargin(),
-            signUpButtonLayoutParams.bottomMargin);
+    String getConfirmCode() {
+        return confirmCodeEditText.getText();
     }
 
-    @Override
-    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        final int parentWidth = MeasureSpec.getSize(widthMeasureSpec);
-        final int maxWidth = Math.min((int)(parentWidth * FORM_SIDE_MARGIN_RATIO), MAX_FORM_WIDTH_IN_PIXELS);
-        super.onMeasure(MeasureSpec.makeMeasureSpec(maxWidth, MeasureSpec.AT_MOST), heightMeasureSpec);
+    String getUserName() {
+        return userNameEditText.getText();
     }
 
-    @Override
-    protected void onLayout(boolean changed, int l, int t, int r, int b) {
-        super.onLayout(changed, l, t, r, b);
-        setupBackground();
-    }
-
-    private void setupBackground() {
-        if (!this.fullScreenBackgroundColor) {
-            splitBackgroundDrawable.setSplitPointDistanceFromTop(confirmForm.getTop()
-                + (confirmForm.getMeasuredHeight()/2));
-            ((ViewGroup) getParent()).setBackgroundDrawable(splitBackgroundDrawable);
-        } else {
-            ((ViewGroup) getParent()).setBackgroundDrawable(backgroundDrawable);
-        }
-    }
-
-    public EditText getUserNameEditText() {
-        return userNameEditText;
-    }
-
-    public EditText getConfirmCodeEditText() {
-        return confirmCodeEditText;
-    }
 }

@@ -17,63 +17,69 @@
 
 package com.amazonaws.mobile.auth.userpools;
 
-import android.app.Activity;
-import android.content.Intent;
-import android.os.Bundle;
-import android.util.Log;
-import android.view.View;
-
-import com.amazonaws.mobile.auth.userpools.R;
+import com.amazonaws.mobile.auth.core.signin.SignInProvider;
+import com.gluonhq.charm.glisten.application.MobileApplication;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Activity to prompt for account sign up information.
  */
-public class SignUpActivity extends Activity {
-    /** Log tag. */
-    private static final String LOG_TAG = SignUpActivity.class.getSimpleName();
+public class SignUpActivity {
+    
+    private static final Logger LOG = Logger.getLogger(SignUpActivity.class.getName());
 
+    private static final String VIEW_NAME = "com.amazonaws.mobile.auth.userpools.SignUpView";
+    
     private SignUpView signUpView;
+    
+    private final SignInProvider provider;
 
-    @Override
-    protected void onCreate(final Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_sign_up);
-
-        signUpView = (SignUpView) findViewById(R.id.signup_view);
-
+    public SignUpActivity(SignInProvider provider) {
+        this.provider = provider;
     }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
+    
+    public void show() {
+        if (MobileApplication.getInstance() != null) {
+            MobileApplication.getInstance().removeViewFactory(VIEW_NAME);
+            LOG.log(Level.FINE, "Creating SignUpView instance"); 
+            MobileApplication.getInstance().addViewFactory(VIEW_NAME, () -> {
+                signUpView = new SignUpView(SignUpActivity.this);
+                return signUpView;
+            });
+            LOG.log(Level.FINE, "Switching to SignUpView");
+            GluonView.switchView(VIEW_NAME);
+        } else {
+            LOG.log(Level.WARNING, "Failed to create the SignUpView instance");
+        }
     }
 
     /**
      * Retrieve input and return to caller.
-     * @param view the Android View
      */
-    public void signUp(final View view) {
-
+    public void signUp() {
         final String username = signUpView.getUserName();
         final String password = signUpView.getPassword();
         final String givenName = signUpView.getGivenName();
         final String email = signUpView.getEmail();
         final String phone = signUpView.getPhone();
 
-        Log.d(LOG_TAG, "username = " + username);
-        Log.d(LOG_TAG, "given_name = " + givenName);
-        Log.d(LOG_TAG, "email = " + email);
-        Log.d(LOG_TAG, "phone = " + phone);
 
-        final Intent intent = new Intent();
-        intent.putExtra(CognitoUserPoolsSignInProvider.AttributeKeys.USERNAME, username);
-        intent.putExtra(CognitoUserPoolsSignInProvider.AttributeKeys.PASSWORD, password);
-        intent.putExtra(CognitoUserPoolsSignInProvider.AttributeKeys.GIVEN_NAME, givenName);
-        intent.putExtra(CognitoUserPoolsSignInProvider.AttributeKeys.EMAIL_ADDRESS, email);
-        intent.putExtra(CognitoUserPoolsSignInProvider.AttributeKeys.PHONE_NUMBER, phone);
+        LOG.log(Level.FINE, "username = " + username + ", password = " + password + 
+                ", givenName = " + givenName + ", email = " + email + ", phone = " + phone);
 
-        setResult(RESULT_OK, intent);
-
-        finish();
+        final Map<String, String> result = new HashMap<>();
+        result.put(CognitoUserPoolsSignInProvider.AttributeKeys.USERNAME, username);
+        result.put(CognitoUserPoolsSignInProvider.AttributeKeys.PASSWORD, password);
+        result.put(CognitoUserPoolsSignInProvider.AttributeKeys.GIVEN_NAME, givenName);
+        result.put(CognitoUserPoolsSignInProvider.AttributeKeys.EMAIL_ADDRESS, email);
+        result.put(CognitoUserPoolsSignInProvider.AttributeKeys.PHONE_NUMBER, phone);
+        provider.handleActivityResult(CognitoUserPoolsSignInProvider.SIGN_UP_REQUEST_CODE, 0, result);
+        if (MobileApplication.getInstance() != null) {
+            MobileApplication.getInstance().switchToPreviousView();
+        }
     }
+    
 }

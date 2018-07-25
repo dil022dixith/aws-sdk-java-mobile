@@ -2,12 +2,11 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>com.amazonaws</groupId>
-  <artifactId>aws-android-sdk-auth-ui</artifactId>
-  <packaging>aar</packaging>
-  <name>AWS SDK for Android - AWS Authentication UI</name>
-  <description>The AWS Android SDK for Authentication UI holds the client classes that are used for presenting the SignIn Screen with SignInButtons and Amazon Cognito UserPools UI</description>
-  <url>http://aws.amazon.com/sdkforandroid</url>
+  <groupId>com.gluonhq</groupId>
+  <artifactId>aws-java-sdk-auth-ui</artifactId>
+  <name>AWS SDK for Java - AWS Authentication UI</name>
+  <description>The AWS Java SDK for Authentication UI holds the client classes that are used for presenting the SignIn Screen with SignInButtons and Amazon Cognito UserPools UI</description>
+  <url>https://github.com/gluonhq/aws-sdk-java-mobile</url>
 
   <properties>
     <project.build.sourceEncoding>
@@ -19,27 +18,19 @@
   </properties>
 
   <parent>
-    <groupId>com.amazonaws</groupId>
-    <artifactId>aws-android-sdk-pom</artifactId>
+    <groupId>com.gluonhq</groupId>
+    <artifactId>aws-java-sdk-pom</artifactId>
     <version>2.6.19</version>
   </parent>
 
-  <repositories>
-    <repository>
-      <id>android-support</id>
-      <url>file://${env.ANDROID_HOME}/extras/android/m2repository/</url>
-    </repository>
-  </repositories>
-
   <dependencies>
     <dependency>
-      <groupId>com.amazonaws</groupId>
-      <artifactId>aws-android-sdk-auth-core</artifactId>
+      <groupId>com.gluonhq</groupId>
+      <artifactId>aws-java-sdk-auth-core</artifactId>
       <optional>false</optional>
       <version>2.6.19</version>
-      <type>aar</type>
     </dependency>
-    <dependency>
+    <!--<dependency>
       <groupId>com.amazonaws</groupId>
       <artifactId>aws-android-sdk-auth-google</artifactId>
       <optional>true</optional>
@@ -52,26 +43,12 @@
       <optional>true</optional>
       <version>2.6.19</version>
       <type>aar</type>
-    </dependency>
+    </dependency>-->
     <dependency>
-      <groupId>com.amazonaws</groupId>
-      <artifactId>aws-android-sdk-auth-userpools</artifactId>
+      <groupId>com.gluonhq</groupId>
+      <artifactId>aws-java-sdk-auth-userpools</artifactId>
       <optional>true</optional>
       <version>2.6.19</version>
-      <type>aar</type>
-    </dependency>
-    <dependency>
-      <groupId>com.google.android</groupId>
-      <artifactId>android</artifactId>
-      <version>4.1.1.4</version>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>com.android.support</groupId>
-      <artifactId>appcompat-v7</artifactId>
-      <optional>true</optional>
-      <version>23.0.1</version>
-      <type>aar</type>
     </dependency>
   </dependencies>
 

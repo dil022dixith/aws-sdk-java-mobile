@@ -23,7 +23,7 @@ import com.amazonaws.mobile.auth.core.signin.SignInProvider;
 //import com.amazonaws.mobile.auth.facebook.FacebookSignInProvider;
 //import com.amazonaws.mobile.auth.google.GoogleButton;
 //import com.amazonaws.mobile.auth.google.GoogleSignInProvider;
-//import com.amazonaws.mobile.auth.userpools.CognitoUserPoolsSignInProvider;;
+import com.amazonaws.mobile.auth.userpools.CognitoUserPoolsSignInProvider;;
 import com.amazonaws.mobile.config.AWSConfiguration;
 import com.amazonaws.mobile.config.AWSConfigurable;
 
@@ -306,9 +306,7 @@ public final class AWSMobileClient {
         final IdentityManager identityManager = IdentityManager.getDefaultIdentityManager();
 
         if (isConfigurationKeyPresent(USER_POOLS)) {
-            // TODO: 
-            throw new UnsupportedOperationException("Not supported yet.");
-//            identityManager.addSignInProvider(CognitoUserPoolsSignInProvider.class);
+            identityManager.addSignInProvider(CognitoUserPoolsSignInProvider.class);
         }
 
         if (isConfigurationKeyPresent(FACEBOOK)) {

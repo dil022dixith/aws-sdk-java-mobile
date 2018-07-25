@@ -17,9 +17,6 @@
 
 package com.amazonaws.mobileconnectors.cognitoidentityprovider.continuations;
 
-import android.content.Context;
-import android.os.Handler;
-
 import com.amazonaws.mobileconnectors.cognitoidentityprovider.CognitoUser;
 import com.amazonaws.mobileconnectors.cognitoidentityprovider.CognitoUserCodeDeliveryDetails;
 import com.amazonaws.mobileconnectors.cognitoidentityprovider.handlers.AuthenticationHandler;
@@ -42,7 +39,6 @@ public class MultiFactorAuthenticationContinuation implements CognitoIdentityPro
     public static final boolean RUN_IN_CURRENT = false;
 
     private final CognitoUser user;
-    private final Context context;
     private final RespondToAuthChallengeResult challenge;
     private final boolean runInBackground;
     private final AuthenticationHandler callback;
@@ -55,15 +51,12 @@ public class MultiFactorAuthenticationContinuation implements CognitoIdentityPro
      * @param challenge             REQUIRED: Contains the MFA Challenge.
      * @param runInBackground       REQUIRED: Represents where this continuation has to run.
      * @param callback              REQUIRED: Callback to interact with the app.
-     * @param context               REQUIRED: The android context.
      */
     public MultiFactorAuthenticationContinuation(CognitoUser user,
-                                                 Context context,
                                                  RespondToAuthChallengeResult challenge,
                                                  boolean runInBackground,
                                                  AuthenticationHandler callback) {
         this.user = user;
-        this.context = context;
         this.callback = callback;
         this.runInBackground = runInBackground;
         this.challenge = challenge;
@@ -97,37 +90,21 @@ public class MultiFactorAuthenticationContinuation implements CognitoIdentityPro
     @Override
     public void continueTask() {
         if (runInBackground) {
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    final Handler handler = new Handler(context.getMainLooper());
-                    Runnable nextStep;
-                    try {
-
-                        nextStep = user.respondToMfaChallenge(mfaCode, challenge, callback,
-                                RUN_IN_BACKGROUND);
-                    } catch (final Exception e) {
-                        nextStep = new Runnable() {
-                            @Override
-                            public void run() {
-                                callback.onFailure(e);
-                            }
-                        };
-                    }
-                    handler.post(nextStep);
+            new Thread(() -> {
+                Runnable nextStep;
+                try {
+                    nextStep = user.respondToMfaChallenge(mfaCode, challenge, callback, RUN_IN_BACKGROUND);
+                } catch (final Exception e) {
+                    nextStep = () -> callback.onFailure(e);
                 }
+                nextStep.run();
             }).start();
         } else {
             Runnable nextStep;
             try {
                 nextStep = user.respondToMfaChallenge(mfaCode, challenge, callback, RUN_IN_CURRENT);
             } catch (final Exception e) {
-                nextStep = new Runnable() {
-                    @Override
-                    public void run() {
-                        callback.onFailure(e);
-                    }
-                };
+                nextStep = () -> callback.onFailure(e);
             }
             nextStep.run();
         }

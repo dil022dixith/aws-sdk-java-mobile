@@ -96,7 +96,7 @@ public class CognitoCachingCredentialsProvider
     private final IdentityChangedListener listener = new IdentityChangedListener() {
         @Override
         public void identityChanged(String oldIdentityId, String newIdentityId) {
-            LOG.log(Level.FINE,  "Identity id is changed");
+            LOG.log(Level.INFO,  "Identity id is changed: " + newIdentityId);
             saveIdentityId(newIdentityId);
             clearCredentials();
         }
@@ -670,7 +670,7 @@ public class CognitoCachingCredentialsProvider
         LOG.log(Level.FINE,  "Saving identity id to SharedPreferences");
         this.identityId = identityId;
 
-        prefs.store(namespace(ID_KEY), identityId);
+        prefs.store(namespace(ID_KEY), identityId == null ? "" : identityId);
     }
 
     @Override

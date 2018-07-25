@@ -17,11 +17,6 @@
 
 package com.amazonaws.mobile.auth.ui;
 
-import android.app.Activity;
-import android.content.Context;
-import android.content.Intent;
-import android.util.Log;
-
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.mobile.auth.core.IdentityManager;
 import com.amazonaws.mobile.auth.core.IdentityProvider;
@@ -30,25 +25,23 @@ import com.amazonaws.mobile.auth.core.DefaultSignInResultHandler;
 import com.amazonaws.mobile.auth.core.signin.ui.buttons.SignInButton;
 import com.amazonaws.mobile.config.AWSConfigurable;
 import com.amazonaws.mobile.config.AWSConfiguration;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.json.JSONObject;
 
 public class SignInUI implements AWSConfigurable {
 
-    /** Log Tag. */
-    private static final String LOG_TAG = SignInUI.class.getSimpleName();
+    private static final Logger LOG = Logger.getLogger(SignInUI.class.getName());
 
     /** Calling activity. */
-    private Activity loginCallingActivity;
+    private String loginCallingActivity;
 
     /** Next activity. */
-    private Class<? extends Activity> loginNextActivity;
+    private String loginNextActivity;
 
     /** Configuration information for AuthUI. */
     private AuthUIConfiguration authUIConfiguration;
-
-    /** Activity context. */
-    private Context context;
 
     /** AWSConfiguration object that represents the `awsconfiguration.json` file. */
     private AWSConfiguration awsConfiguration;
@@ -70,9 +63,10 @@ public class SignInUI implements AWSConfigurable {
      * 
      * @param callingActivity The activity
      * @param nextActivity    The next activity to go when sign-in succeeded
+     * @return 
      */
-    public LoginBuilder login(final Activity callingActivity,
-                              final Class<? extends Activity> nextActivity) {
+    public LoginBuilder login(final String callingActivity,
+                              final String nextActivity) {
         this.loginCallingActivity = callingActivity;
         this.loginNextActivity = nextActivity;
         this.authUIConfiguration = getDefaultAuthUIConfiguration();
@@ -85,28 +79,28 @@ public class SignInUI implements AWSConfigurable {
      * Check if the user is not signed in and present the AuthUI screen.
      */
     private void presentAuthUI() {
-        Log.d(LOG_TAG, "Presenting the SignIn UI.");
+        LOG.log(Level.FINE, "Presenting the SignIn UI.");
         final IdentityManager identityManager = IdentityManager.getDefaultIdentityManager();
         final boolean canCancel = this.authUIConfiguration.getCanCancel();
-        identityManager.login(this.loginCallingActivity, new DefaultSignInResultHandler() {
+        identityManager.login(new DefaultSignInResultHandler() {
             @Override
-            public void onSuccess(Activity activity, IdentityProvider identityProvider) {
+            public void onSuccess(IdentityProvider identityProvider) {
                 if (identityProvider != null) {
-                    Log.d(LOG_TAG, "Sign-in succeeded. The identity provider name is available here using: " +
+                    LOG.log(Level.FINE, "Sign-in succeeded. The identity provider name is available here using: " +
                             identityProvider.getDisplayName());
-                    startNextActivity(activity, loginNextActivity);
+                    startNextActivity(loginCallingActivity, loginNextActivity);
                 }
             }
 
             @Override
-            public boolean onCancel(Activity activity) {
+            public boolean onCancel() {
                 // Return false to prevent the user from dismissing the sign in screen by pressing back button.
                 // Return true to allow this.
                 return canCancel;
             }
         });
 
-        SignInActivity.startSignInActivity(this.loginCallingActivity, this.authUIConfiguration);
+        SignInActivity.startSignInActivity(this.authUIConfiguration);
     }
 
     /**
@@ -115,20 +109,20 @@ public class SignInUI implements AWSConfigurable {
      */
     private void loginWithBuilder(final LoginBuilder loginBuilder) {
          try {
-            Log.d(LOG_TAG, "Initiating the SignIn flow.");
+            LOG.log(Level.FINE, "Initiating the SignIn flow.");
             if (loginBuilder.getAuthUIConfiguration() != null) {
                 this.authUIConfiguration = loginBuilder.getAuthUIConfiguration();
             }
             final IdentityManager identityManager = IdentityManager.getDefaultIdentityManager();
             if (identityManager.isUserSignedIn()) {
-                Log.d(LOG_TAG, "User is already signed-in. Moving to the next activity.");
+                LOG.log(Level.FINE, "User is already signed-in. Moving to the next activity.");
                 startNextActivity(this.loginCallingActivity, this.loginNextActivity);
             } else {
-                Log.d(LOG_TAG, "User is not signed-in. Presenting the SignInUI.");
+                LOG.log(Level.FINE, "User is not signed-in. Presenting the SignInUI.");
                 presentAuthUI();
             }
         } catch (final Exception exception) {
-            Log.e(LOG_TAG, "Error occurred in sign-in ", exception);
+            LOG.log(Level.WARNING, "Error occurred in sign-in ", exception);
         }
     }
 
@@ -150,6 +144,8 @@ public class SignInUI implements AWSConfigurable {
 
         /**
          * Set the custom authUIConfiguration passed in.
+         * @param authUIConfiguration
+         * @return 
          */
         public LoginBuilder authUIConfiguration(final AuthUIConfiguration authUIConfiguration) {
             this.authUIConfiguration = authUIConfiguration;
@@ -197,7 +193,7 @@ public class SignInUI implements AWSConfigurable {
 
             configBuilder.canCancel(false);
         } catch (Exception exception) {
-              Log.e(LOG_TAG, "Cannot configure the SignInUI. "
+              LOG.log(Level.WARNING, "Cannot configure the SignInUI. "
                 + "Check the context and the configuration object passed in.", exception);
         }
 
@@ -218,7 +214,7 @@ public class SignInUI implements AWSConfigurable {
                 return jsonObject != null;
             }
         } catch (final Exception exception) {
-            Log.d(LOG_TAG, configurationKey + " not found in `awsconfiguration.json`");
+            LOG.log(Level.WARNING, configurationKey + " not found in `awsconfiguration.json`");
             return false;
         }
     }
@@ -229,39 +225,33 @@ public class SignInUI implements AWSConfigurable {
      * @param currentActivity   The current activity context
      * @param nextActivity      The class of next activity to move to
      */
-    private void startNextActivity(final Activity currentActivity,
-                                   final Class<? extends Activity> nextActivity) {
+    private void startNextActivity(final String currentActivity, final String nextActivity) {
         if (currentActivity == null || nextActivity == null) {
-            Log.e(LOG_TAG, "Cannot start the next activity. Check the context and the nextActivity passed in.");
+            LOG.log(Level.WARNING, "Cannot start the next activity. Check the context and the nextActivity passed in.");
             return;
         }
 
-        currentActivity
-            .startActivity(new Intent(currentActivity, nextActivity)
-                .setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP));
-        currentActivity.finish();
+        LOG.log(Level.FINE, "Switching to view: " + nextActivity);
+        SignInView.switchView(nextActivity);
     }
 
     /** {@inheritDoc} */
     @Override
-    public AWSConfigurable initialize(final Context context) throws Exception {
-        return initialize(context, new AWSConfiguration(context.getApplicationContext()));
+    public AWSConfigurable initialize() throws Exception {
+        return initialize(new AWSConfiguration());
     }
 
     /** {@inheritDoc} */
     @Override
-    public AWSConfigurable initialize(final Context context,
-                                      final AWSConfiguration configuration) throws Exception {
-        return initialize(context, configuration, new ClientConfiguration());
+    public AWSConfigurable initialize(final AWSConfiguration configuration) throws Exception {
+        return initialize(configuration, new ClientConfiguration());
     }
 
     /** {@inheritDoc} */
     @Override
-    public AWSConfigurable initialize(final Context context,
-                                               final AWSConfiguration configuration,
+    public AWSConfigurable initialize(final AWSConfiguration configuration,
                                                final ClientConfiguration clientConfiguration) throws Exception {
-        Log.d(LOG_TAG, "Initializing SignInUI.");
-        this.context = context;
+        LOG.log(Level.FINE, "Initializing SignInUI.");
         this.awsConfiguration = configuration;
         this.clientConfiguration = clientConfiguration;
         return this;

@@ -17,13 +17,6 @@
 
 package com.amazonaws.mobile.auth.userpools;
 
-import android.app.Activity;
-import android.content.Context;
-import android.content.Intent;
-import android.util.Log;
-import android.view.View;
-import android.widget.TextView;
-
 import com.amazonaws.mobile.config.AWSConfiguration;
 
 import com.amazonaws.mobileconnectors.cognitoidentityprovider.handlers.VerificationHandler;
@@ -53,14 +46,24 @@ import com.amazonaws.mobile.auth.core.signin.SignInProviderResultHandler;
 import com.amazonaws.mobile.auth.core.internal.util.ViewHelper;
 
 import com.amazonaws.regions.Regions;
+import com.gluonhq.charm.glisten.application.MobileApplication;
+import com.gluonhq.charm.glisten.mvc.View;
 
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javafx.scene.control.Button;
 
 /**
  * Manages sign-in using Cognito User Pools.
  */
 public class CognitoUserPoolsSignInProvider implements SignInProvider {
+
+    private static final Logger LOG = Logger.getLogger(CognitoUserPoolsSignInProvider.class.getName());
+    
     /**
      * Cognito User Pools attributes.
      */
@@ -83,34 +86,25 @@ public class CognitoUserPoolsSignInProvider implements SignInProvider {
 
         /** Phone number attribute. */
         public static final String PHONE_NUMBER = "phone_number";
-
-        /** Background Color. */
-        public static final String BACKGROUND_COLOR = "signInBackgroundColor";
-
-        /** Key for enabling background color full screen. */
-        public static final String FULL_SCREEN_BACKGROUND_COLOR = "fullScreenBackgroundColor";
-
-        /** Key for specifying the custom font family. */
-        public static final String FONT_FAMILY = "fontFamily";
     }
-
-    /** Log tag. */
-    private static final String LOG_TAG = CognitoUserPoolsSignInProvider.class.getSimpleName();
 
     /** Start of Intent request codes owned by the Cognito User Pools app. */
     private static final int REQUEST_CODE_START = 0x2970;
 
     /** Request code for password reset Intent. */
-    private static final int FORGOT_PASSWORD_REQUEST_CODE = REQUEST_CODE_START + 42;
+    public static final int FORGOT_PASSWORD_REQUEST_CODE = REQUEST_CODE_START + 42;
 
     /** Request code for account registration Intent. */
-    private static final int SIGN_UP_REQUEST_CODE = REQUEST_CODE_START + 43;
+    public static final int SIGN_UP_REQUEST_CODE = REQUEST_CODE_START + 43;
 
     /** Request code for MFA Intent. */
-    private static final int MFA_REQUEST_CODE = REQUEST_CODE_START + 44;
+    public static final int MFA_REQUEST_CODE = REQUEST_CODE_START + 44;
 
     /** Request code for account verification Intent. */
-    private static final int VERIFICATION_REQUEST_CODE = REQUEST_CODE_START + 45;
+    public static final int VERIFICATION_REQUEST_CODE = REQUEST_CODE_START + 45;
+
+    /** Request code for account verification Intent. */
+    public static final int USER_POOL_SIGN_IN_REQUEST_CODE = REQUEST_CODE_START + 46;
 
     /** Request codes that the Cognito User Pools can handle. */
     private static final Set<Integer> REQUEST_CODES = new HashSet<Integer>() { {
@@ -118,6 +112,7 @@ public class CognitoUserPoolsSignInProvider implements SignInProvider {
         add(SIGN_UP_REQUEST_CODE);
         add(MFA_REQUEST_CODE);
         add(VERIFICATION_REQUEST_CODE);
+        add(USER_POOL_SIGN_IN_REQUEST_CODE);
     } };
 
     /** Stores the configuration file name. */
@@ -129,6 +124,8 @@ public class CognitoUserPoolsSignInProvider implements SignInProvider {
     /** Prefix of the exception message. */
     private static final String USERPOOLS_EXCEPTION_PREFIX = "(Service";
 
+    private static final String USER_POOL_VIEW_NAME = "com.amazonaws.mobile.auth.userpools.UserPoolSignInView";
+    
     /** The sign-in results adapter from the SignInManager. */
     private SignInProviderResultHandler resultsHandler;
 
@@ -137,12 +134,6 @@ public class CognitoUserPoolsSignInProvider implements SignInProvider {
 
     /** MFA processing provided by the Cognito User Pools SDK. */
     private MultiFactorAuthenticationContinuation multiFactorAuthenticationContinuation;
-
-    /** Android context. */
-    private Context context;
-
-    /** Invoking Android Activity. */
-    private Activity activity;
 
     /** Sign-in username. */
     private String username;
@@ -165,101 +156,98 @@ public class CognitoUserPoolsSignInProvider implements SignInProvider {
     /** AWSConfiguration object. */
     private AWSConfiguration awsConfiguration;
 
-    /** Background Color for the View. */
-    private static int backgroundColor;
-
-    /** Draw the background color full screen if fullScreenBackgroundColor is True. */
-    private static boolean isBackgroundColorFullScreenEnabled;
-
-    /** Tyypeface font-family. */
-    private static String fontFamily;
-
     /**
      * Handle callbacks from the Forgot Password flow.
+     * @return 
      */
-    private ForgotPasswordHandler forgotPasswordHandler = new ForgotPasswordHandler() {
-        @Override
-        public void onSuccess() {
-            Log.d(LOG_TAG, "Password change succeeded.");
-            ViewHelper.showDialog(activity, activity.getString(R.string.title_activity_forgot_password),
-                    activity.getString(R.string.password_change_success));
-        }
-
-        @Override
-        public void getResetCode(final ForgotPasswordContinuation continuation) {
-            forgotPasswordContinuation = continuation;
-
-            final Intent intent = new Intent(context, ForgotPasswordActivity.class);
-            activity.startActivityForResult(intent, FORGOT_PASSWORD_REQUEST_CODE);
-        }
-
-        @Override
-        public void onFailure(final Exception exception) {
-            Log.e(LOG_TAG, "Password change failed.", exception);
-
-            final String message;
-            if (exception instanceof InvalidParameterException) {
-                message = activity.getString(R.string.password_change_no_verification_failed);
-            } else {
-                message = getErrorMessageFromException(exception);
+    protected ForgotPasswordHandler getForgotPasswordHandler() {
+        return new ForgotPasswordHandler() {
+            @Override
+            public void onSuccess() {
+                LOG.log(Level.FINE, "Password change succeeded.");
+                GluonView.showProgressBar(false);
+                ViewHelper.showDialog(GluonView.getString("title.activity.forgot.password"), 
+                        GluonView.getString("password.change.success"));
             }
-            ViewHelper.showDialog(activity, activity.getString(R.string.title_activity_forgot_password),
-                    activity.getString(R.string.password_change_failed) + " " + message);
-        }
-    };
 
+            @Override
+            public void getResetCode(final ForgotPasswordContinuation continuation) {
+                forgotPasswordContinuation = continuation;
+
+                ForgotPasswordActivity forgot = new ForgotPasswordActivity(CognitoUserPoolsSignInProvider.this);
+                forgot.show();
+            }
+
+            @Override
+            public void onFailure(final Exception exception) {
+                LOG.log(Level.WARNING, "Password change failed.", exception);
+                GluonView.showProgressBar(false);
+                final String message;
+                if (exception instanceof InvalidParameterException) {
+                    message = GluonView.getString("password.change.no.verification.failed");
+                } else {
+                    message = getErrorMessageFromException(exception);
+                }
+                ViewHelper.showDialog(GluonView.getString("title.activity.forgot.password"), 
+                        GluonView.getString("password.change.failed") + " " + message);
+            }
+        };
+    }
+    
     /**
      * Start the SignUp Confirm Activity with the attribte keys.
      */
     private void startVerificationActivity() {
-        final Intent intent = new Intent(context, SignUpConfirmActivity.class);
-        intent.putExtra(AttributeKeys.USERNAME, username);
-        activity.startActivityForResult(intent, VERIFICATION_REQUEST_CODE);
+        SignUpConfirmActivity confirm = new SignUpConfirmActivity(CognitoUserPoolsSignInProvider.this);
+        confirm.show(username);
     }
 
     /**
      * Handle callbacks from the Sign Up flow.
      */
-    private SignUpHandler signUpHandler = new SignUpHandler() {
+    private final SignUpHandler signUpHandler = new SignUpHandler() {
         @Override
         public void onSuccess(final CognitoUser user, final boolean signUpConfirmationState,
                               final CognitoUserCodeDeliveryDetails cognitoUserCodeDeliveryDetails) {
+            GluonView.showProgressBar(false);
             if (signUpConfirmationState) {
-                Log.d(LOG_TAG, "Signed up. User ID = " + user.getUserId());
-                ViewHelper.showDialog(activity, activity.getString(R.string.title_activity_sign_up),
-                        activity.getString(R.string.sign_up_success) + " " + user.getUserId());
+                LOG.log(Level.FINE, "Signed up. User ID = " + user.getUserId());
+                ViewHelper.showDialog(GluonView.getString("title.activity.sign.up"), 
+                        GluonView.getString("sign.up.success") + " " + user.getUserId());
             } else {
-                Log.w(LOG_TAG, "Additional confirmation for sign up.");
-
+                LOG.log(Level.WARNING, "Additional confirmation for sign up.");
                 startVerificationActivity();
             }
         }
 
         @Override
         public void onFailure(final Exception exception) {
-            Log.e(LOG_TAG, "Sign up failed.", exception);
-            ViewHelper.showDialog(activity, activity.getString(R.string.title_dialog_sign_up_failed),
+            LOG.log(Level.WARNING, "Sign up failed.", exception);
+            GluonView.showProgressBar(false);
+            ViewHelper.showDialog(GluonView.getString("title.dialog.sign.up.failed"),
                 exception.getLocalizedMessage() != null ? getErrorMessageFromException(exception)
-                    : activity.getString(R.string.sign_up_failed));
+                    : GluonView.getString("sign.up.failed"));
         }
     };
 
     /**
      * Handle callbacks from the Sign Up - Confirm Account flow.
      */
-    private GenericHandler signUpConfirmationHandler = new GenericHandler() {
+    private final GenericHandler signUpConfirmationHandler = new GenericHandler() {
         @Override
         public void onSuccess() {
-            Log.i(LOG_TAG, "Confirmed.");
-            ViewHelper.showDialog(activity, activity.getString(R.string.title_activity_sign_up_confirm),
-                    activity.getString(R.string.sign_up_confirm_success));
+            LOG.log(Level.INFO, "Confirmed.");
+            GluonView.showProgressBar(false);
+            ViewHelper.showDialog(GluonView.getString("title.activity.sign.up.confirm"), 
+                    GluonView.getString("sign.up.confirm.success"));
         }
 
         @Override
         public void onFailure(final Exception exception) {
-            Log.e(LOG_TAG, "Failed to confirm user.", exception);
-            ViewHelper.showDialog(activity, activity.getString(R.string.title_activity_sign_up_confirm),
-                    activity.getString(R.string.sign_up_confirm_failed) + " " + getErrorMessageFromException(exception));
+            LOG.log(Level.WARNING, "Failed to confirm user.", exception);
+            GluonView.showProgressBar(false);
+            ViewHelper.showDialog(GluonView.getString("title.activity.sign.up.confirm"), 
+                    GluonView.getString("sign.up.confirm.failed") + " " + getErrorMessageFromException(exception));
         }
     };
 
@@ -271,16 +259,17 @@ public class CognitoUserPoolsSignInProvider implements SignInProvider {
         cognitoUser.resendConfirmationCodeInBackground(new VerificationHandler() {
             @Override
             public void onSuccess(final CognitoUserCodeDeliveryDetails verificationCodeDeliveryMedium) {
+                GluonView.showProgressBar(false);
                 startVerificationActivity();
             }
 
             @Override
             public void onFailure(final Exception exception) {
+                GluonView.showProgressBar(false);
                 if (null != resultsHandler) {
-                    ViewHelper.showDialog(activity, activity.getString(R.string.title_activity_sign_in),
-                        activity.getString(R.string.login_failed)
-                            + "\nUser was not verified and resending confirmation code failed.\n"
-                            + getErrorMessageFromException(exception));
+                    ViewHelper.showDialog(GluonView.getString("title.activity.sign.in"),
+                        GluonView.getString("login.failed") + "\n" +
+                        GluonView.getString("login.failed.text") + "\n" + getErrorMessageFromException(exception));
 
                     resultsHandler.onError(CognitoUserPoolsSignInProvider.this, exception);
                 }
@@ -291,11 +280,11 @@ public class CognitoUserPoolsSignInProvider implements SignInProvider {
     /**
      * Handle callbacks from the Authentication flow. Includes MFA handling.
      */
-    private AuthenticationHandler authenticationHandler = new AuthenticationHandler() {
+    private final AuthenticationHandler authenticationHandler = new AuthenticationHandler() {
         @Override
         public void onSuccess(final CognitoUserSession userSession, final CognitoDevice newDevice) {
-            Log.i(LOG_TAG, "Logged in. " + userSession.getIdToken());
-
+            LOG.log(Level.INFO, "Logged in. " + userSession.getIdToken());
+            GluonView.showProgressBar(false);
             cognitoUserSession = userSession;
 
             if (null != resultsHandler) {
@@ -322,8 +311,8 @@ public class CognitoUserPoolsSignInProvider implements SignInProvider {
         public void getMFACode(final MultiFactorAuthenticationContinuation continuation) {
             multiFactorAuthenticationContinuation = continuation;
 
-            final Intent intent = new Intent(context, MFAActivity.class);
-            activity.startActivityForResult(intent, MFA_REQUEST_CODE);
+            MFAActivity mfa = new MFAActivity(CognitoUserPoolsSignInProvider.this);
+            mfa.show();
         }
 
         @Override
@@ -333,8 +322,8 @@ public class CognitoUserPoolsSignInProvider implements SignInProvider {
 
         @Override
         public void onFailure(final Exception exception) {
-            Log.e(LOG_TAG, "Failed to login.", exception);
-
+            LOG.log(Level.WARNING, "Failed to login.", exception);
+            GluonView.showProgressBar(false);
             final String message;
 
             // UserNotConfirmedException will only happen once in the sign-in flow in the case
@@ -348,17 +337,16 @@ public class CognitoUserPoolsSignInProvider implements SignInProvider {
             }
 
             if (exception instanceof UserNotFoundException) {
-                message = activity.getString(R.string.user_does_not_exist);
+                message = GluonView.getString("user.does.not.exist");
             } else if (exception instanceof NotAuthorizedException) {
-                message = activity.getString(R.string.incorrect_username_or_password);
+                message = GluonView.getString("incorrect.username.or.password");
             } else {
                 message = getErrorMessageFromException(exception);
             }
 
-
             if (null != resultsHandler) {
-                ViewHelper.showDialog(activity, activity.getString(R.string.title_activity_sign_in),
-                                      activity.getString(R.string.login_failed) + " " + message);
+                ViewHelper.showDialog(GluonView.getString("title.activity.sign.in"), 
+                        GluonView.getString("login.failed") + " " + message);
                 resultsHandler.onError(CognitoUserPoolsSignInProvider.this, exception);
             }
         }
@@ -366,17 +354,15 @@ public class CognitoUserPoolsSignInProvider implements SignInProvider {
 
     /** {@inheritDoc} */
     @Override
-    public void initialize(final Context context, final AWSConfiguration awsConfiguration) {
-        this.context = context;
+    public void initialize(final AWSConfiguration awsConfiguration) {
         this.awsConfiguration = awsConfiguration;
 
-        Log.d(LOG_TAG, "initalizing Cognito User Pools");
+        LOG.log(Level.FINE, "initalizing Cognito User Pools");
 
         final String regionString = getCognitoUserPoolRegion();
         final Regions region = Regions.fromName(regionString);
 
-        this.cognitoUserPool = new CognitoUserPool(context,
-                                                   getCognitoUserPoolId(),
+        this.cognitoUserPool = new CognitoUserPool(getCognitoUserPoolId(),
                                                    getCognitoUserPoolClientId(),
                                                    getCognitoUserPoolClientSecret(),
                                                    region);
@@ -395,52 +381,52 @@ public class CognitoUserPoolsSignInProvider implements SignInProvider {
     @Override
     public void handleActivityResult(final int requestCode,
                                      final int resultCode,
-                                     final Intent data) {
+                                     final Object data) {
 
-        if (Activity.RESULT_OK == resultCode) {
+        if (resultCode == 0) {
+            Map<String, String> map = (Map<String, String>) data;
+            GluonView.showProgressBar(true);
             switch (requestCode) {
                 case FORGOT_PASSWORD_REQUEST_CODE:
-                    password = data.getStringExtra(CognitoUserPoolsSignInProvider.AttributeKeys.PASSWORD);
-                    verificationCode = data.getStringExtra(CognitoUserPoolsSignInProvider.AttributeKeys.VERIFICATION_CODE);
+                    
+                    password = map.get(CognitoUserPoolsSignInProvider.AttributeKeys.PASSWORD);
+                    verificationCode = map.get(CognitoUserPoolsSignInProvider.AttributeKeys.VERIFICATION_CODE);
 
                     if (password.length() < PASSWORD_MIN_LENGTH) {
-                        ViewHelper.showDialog(activity, activity.getString(R.string.title_activity_forgot_password),
-                                    activity.getString(R.string.password_change_failed) 
-                                    + " " + activity.getString(R.string.password_length_validation_failed));
+                        ViewHelper.showDialog(GluonView.getString("title.activity.forgot.password"),
+                                    GluonView.getString("password.length.validation.failed"));
                         return;
                     } 
 
-                    Log.d(LOG_TAG, "verificationCode = " + verificationCode);
+                    LOG.log(Level.FINE, "verificationCode = " + verificationCode);
 
                     forgotPasswordContinuation.setPassword(password);
                     forgotPasswordContinuation.setVerificationCode(verificationCode);
                     forgotPasswordContinuation.continueTask();
                     break;
                 case SIGN_UP_REQUEST_CODE:
-                    username = data.getStringExtra(CognitoUserPoolsSignInProvider.AttributeKeys.USERNAME);
-                    password = data.getStringExtra(CognitoUserPoolsSignInProvider.AttributeKeys.PASSWORD);
-                    final String givenName = data.getStringExtra(CognitoUserPoolsSignInProvider.AttributeKeys.GIVEN_NAME);
-                    final String email = data.getStringExtra(CognitoUserPoolsSignInProvider.AttributeKeys.EMAIL_ADDRESS);
-                    final String phone = data.getStringExtra(CognitoUserPoolsSignInProvider.AttributeKeys.PHONE_NUMBER);
+                    username = map.get(CognitoUserPoolsSignInProvider.AttributeKeys.USERNAME);
+                    password = map.get(CognitoUserPoolsSignInProvider.AttributeKeys.PASSWORD);
+                    final String givenName = map.get(CognitoUserPoolsSignInProvider.AttributeKeys.GIVEN_NAME);
+                    final String email = map.get(CognitoUserPoolsSignInProvider.AttributeKeys.EMAIL_ADDRESS);
+                    final String phone = map.get(CognitoUserPoolsSignInProvider.AttributeKeys.PHONE_NUMBER);
 
                     if (username.length() < 1) {
-                        ViewHelper.showDialog(activity, activity.getString(R.string.title_activity_sign_up),
-                                    activity.getString(R.string.sign_up_failed)
-                                    + " " + activity.getString(R.string.sign_up_username_missing));
+                        ViewHelper.showDialog(GluonView.getString("title.activity.sign.up"),
+                                    GluonView.getString("sign.up.failed") + " " + GluonView.getString("sign.up.username.missing"));
                         return;
                     }
 
                     if (password.length() < PASSWORD_MIN_LENGTH) {
-                        ViewHelper.showDialog(activity, activity.getString(R.string.title_activity_sign_up),
-                                    activity.getString(R.string.sign_up_failed) 
-                                    + " " + activity.getString(R.string.password_length_validation_failed));
+                        ViewHelper.showDialog(GluonView.getString("title.activity.sign.up"),
+                                    GluonView.getString("sign.up.failed") + " " + GluonView.getString("password.length.validation.failed"));
                         return;
                     }
 
-                    Log.d(LOG_TAG, "username = " + username);
-                    Log.d(LOG_TAG, "given_name = " + givenName);
-                    Log.d(LOG_TAG, "email = " + email);
-                    Log.d(LOG_TAG, "phone = " + phone);
+                    LOG.log(Level.FINE, "username = " + username);
+                    LOG.log(Level.FINE, "given_name = " + givenName);
+                    LOG.log(Level.FINE, "email = " + email);
+                    LOG.log(Level.FINE, "phone = " + phone);
 
                     final CognitoUserAttributes userAttributes = new CognitoUserAttributes();
                     userAttributes.addAttribute(CognitoUserPoolsSignInProvider.AttributeKeys.GIVEN_NAME, givenName);
@@ -455,106 +441,81 @@ public class CognitoUserPoolsSignInProvider implements SignInProvider {
 
                     break;
                 case MFA_REQUEST_CODE:
-                    verificationCode = data.getStringExtra(CognitoUserPoolsSignInProvider.AttributeKeys.VERIFICATION_CODE);
+                    verificationCode = map.get(CognitoUserPoolsSignInProvider.AttributeKeys.VERIFICATION_CODE);
 
                     if (verificationCode.length() < 1) {
-                        ViewHelper.showDialog(activity, activity.getString(R.string.title_activity_mfa),
-                                    activity.getString(R.string.mfa_failed) 
-                                    + " " + activity.getString(R.string.mfa_code_empty));
+                        ViewHelper.showDialog(GluonView.getString("title.activity.mfa"),
+                                    GluonView.getString("mfa.failed") + " " + GluonView.getString("mfa.code.empty"));
                         return;
                     }
 
-                    Log.d(LOG_TAG, "verificationCode = " + verificationCode);
+                    LOG.log(Level.FINE, "verificationCode = " + verificationCode);
 
                     multiFactorAuthenticationContinuation.setMfaCode(verificationCode);
                     multiFactorAuthenticationContinuation.continueTask();
 
                     break;
                 case VERIFICATION_REQUEST_CODE:
-                    username = data.getStringExtra(CognitoUserPoolsSignInProvider.AttributeKeys.USERNAME);
-                    verificationCode = data.getStringExtra(CognitoUserPoolsSignInProvider.AttributeKeys.VERIFICATION_CODE);
+                    username = map.get(CognitoUserPoolsSignInProvider.AttributeKeys.USERNAME);
+                    verificationCode = map.get(CognitoUserPoolsSignInProvider.AttributeKeys.VERIFICATION_CODE);
 
                     if (username.length() < 1) {
-                        ViewHelper.showDialog(activity, activity.getString(R.string.title_activity_sign_up_confirm),
-                                    activity.getString(R.string.sign_up_confirm_title)
-                                    + " " + activity.getString(R.string.sign_up_username_missing));
+                        ViewHelper.showDialog(GluonView.getString("title.activity.sign.up.confirm"),
+                                    GluonView.getString("sign.up.confirm.title") + " " + GluonView.getString("sign.up.username.missing"));
                         return;
                     }
 
                     if (verificationCode.length() < 1) {
-                        ViewHelper.showDialog(activity, activity.getString(R.string.title_activity_sign_up_confirm),
-                                    activity.getString(R.string.sign_up_confirm_title) 
-                                    + " " + activity.getString(R.string.sign_up_confirm_code_missing));
+                        ViewHelper.showDialog(GluonView.getString("title.activity.sign.up.confirm"),
+                                    GluonView.getString("sign.up.confirm.title") + " " + GluonView.getString("sign.up.confirm.code.missing"));
                         return;
                     }
 
-                    Log.d(LOG_TAG, "username = " + username);
-                    Log.d(LOG_TAG, "verificationCode = " + verificationCode);
+                    LOG.log(Level.FINE, "username = " + username);
+                    LOG.log(Level.FINE, "verificationCode = " + verificationCode);
 
                     final CognitoUser cognitoUser = cognitoUserPool.getUser(username);
 
                     cognitoUser.confirmSignUpInBackground(verificationCode, true, signUpConfirmationHandler);
 
                     break;
+                case USER_POOL_SIGN_IN_REQUEST_CODE:
+                    username = map.get(CognitoUserPoolsSignInProvider.AttributeKeys.USERNAME);
+                    password = map.get(CognitoUserPoolsSignInProvider.AttributeKeys.PASSWORD);
+                    LOG.log(Level.FINE, "username = " + username);
+
+                    final CognitoUser cognitoUserSignIn = cognitoUserPool.getUser(username);
+                    cognitoUserSignIn.getSessionInBackground(authenticationHandler);
+                    break;
                 default:
-                    Log.e(LOG_TAG, "Unknown Request Code sent.");
+                    LOG.log(Level.WARNING, "Unknown Request Code sent.");
             }
         }
     }
 
-    /** {@inheritDoc} */
+    private UserPoolSignInView userPoolSignInView;
+            
     @Override
-    public View.OnClickListener initializeSignInButton(final Activity signInActivity,
-                                                       final View buttonView,
-                                                       final SignInProviderResultHandler providerResultsHandler) {
-        this.activity = signInActivity;
-        this.resultsHandler = providerResultsHandler;
-
-        final UserPoolSignInView userPoolSignInView =
-            (UserPoolSignInView) activity.findViewById(R.id.user_pool_sign_in_view_id);
-
-        backgroundColor = userPoolSignInView.getBackgroundColor();
-        fontFamily = userPoolSignInView.getFontFamily();
-        isBackgroundColorFullScreenEnabled = userPoolSignInView.isBackgroundColorFullScreen();
-
-        userPoolSignInView.getSignUpTextView().setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent(context, SignUpActivity.class);
-                activity.startActivityForResult(intent, CognitoUserPoolsSignInProvider.SIGN_UP_REQUEST_CODE);
+    public void initializeSignInButton(final Button buttonView, final SignInProviderResultHandler resultsHandler) {
+        this.resultsHandler = resultsHandler;
+        
+        buttonView.setOnAction(e -> {
+            if (MobileApplication.getInstance() != null) {
+                MobileApplication.getInstance().removeViewFactory(USER_POOL_VIEW_NAME);
+                LOG.log(Level.FINE, "Creating UserPoolSignInView instance");
+                MobileApplication.getInstance().addViewFactory(USER_POOL_VIEW_NAME, new Supplier<View>() {
+                    @Override
+                    public View get() {
+                        userPoolSignInView = new UserPoolSignInView(CognitoUserPoolsSignInProvider.this);
+                        return userPoolSignInView;
+                    }
+                });
+                LOG.log(Level.FINE, "Switching to UserPoolSignInView");
+                GluonView.switchView(USER_POOL_VIEW_NAME);
+            } else {
+                LOG.log(Level.WARNING, "Failed to create the UserPoolSignInView instance");
             }
         });
-
-        final TextView forgotPasswordTextView = userPoolSignInView.getForgotPasswordTextView();
-        forgotPasswordTextView.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(final View view) {
-                username = userPoolSignInView.getEnteredUserName();
-                if (username.length() < 1) {
-                    Log.w(LOG_TAG, "Missing username.");
-                    ViewHelper.showDialog(activity, activity.getString(R.string.title_activity_sign_in), "Missing username.");
-                } else {
-                    final CognitoUser cognitoUser = cognitoUserPool.getUser(username);
-
-                    cognitoUser.forgotPasswordInBackground(forgotPasswordHandler);
-                }
-            }
-        });
-
-        final View.OnClickListener listener = new View.OnClickListener() {
-            @Override
-            public void onClick(final View view) {
-                username = userPoolSignInView.getEnteredUserName();
-                password = userPoolSignInView.getEnteredPassword();
-
-                final CognitoUser cognitoUser = cognitoUserPool.getUser(username);
-
-                cognitoUser.getSessionInBackground(authenticationHandler);
-            }
-        };
-
-        buttonView.setOnClickListener(listener);
-        return listener;
     }
 
     /** {@inheritDoc} */
@@ -587,22 +548,22 @@ public class CognitoUserPoolsSignInProvider implements SignInProvider {
         @Override
         public void getAuthenticationDetails(final AuthenticationContinuation authenticationContinuation,
                                              final String UserId) {
-            Log.d(LOG_TAG, "Can't refresh the session silently, due to authentication details needed.");
+            LOG.log(Level.FINE, "Can't refresh the session silently, due to authentication details needed.");
         }
 
         @Override
         public void getMFACode(final MultiFactorAuthenticationContinuation continuation) {
-            Log.wtf(LOG_TAG, "Refresh flow can not trigger request for MFA code.");
+            LOG.log(Level.SEVERE, "Refresh flow can not trigger request for MFA code.");
         }
 
         @Override
         public void authenticationChallenge(final ChallengeContinuation continuation) {
-            Log.wtf(LOG_TAG, "Refresh flow can not trigger request for authentication challenge.");
+            LOG.log(Level.SEVERE, "Refresh flow can not trigger request for authentication challenge.");
         }
 
         @Override
         public void onFailure(final Exception exception) {
-            Log.e(LOG_TAG, "Can't refresh session.", exception);
+            LOG.log(Level.WARNING, "Can't refresh session.", exception);
         }
     }
 
@@ -619,11 +580,11 @@ public class CognitoUserPoolsSignInProvider implements SignInProvider {
         cognitoUserPool.getCurrentUser().getSession(refreshSessionAuthenticationHandler);
         if (null != refreshSessionAuthenticationHandler.getUserSession()) {
             cognitoUserSession = refreshSessionAuthenticationHandler.getUserSession();
-            Log.i(LOG_TAG, "refreshUserSignInState: Signed in with Cognito.");
+            LOG.log(Level.INFO, "refreshUserSignInState: Signed in with Cognito.");
             return true;
         }
 
-        Log.i(LOG_TAG, "refreshUserSignInState: Not signed in with Cognito.");
+        LOG.log(Level.INFO, "refreshUserSignInState: Not signed in with Cognito.");
         cognitoUserSession = null;
         return false;
     }
@@ -649,7 +610,7 @@ public class CognitoUserPoolsSignInProvider implements SignInProvider {
             if (null != refreshSessionAuthenticationHandler.getUserSession()) {
                 cognitoUserSession = refreshSessionAuthenticationHandler.getUserSession();
             } else {
-                Log.e(LOG_TAG, "Could not refresh the Cognito User Pool Token.");
+                LOG.log(Level.WARNING, "Could not refresh the Cognito User Pool Token.");
             }
         }
 
@@ -660,6 +621,7 @@ public class CognitoUserPoolsSignInProvider implements SignInProvider {
     @Override
     public void signOut() {
         if (null != cognitoUserPool && null != cognitoUserPool.getCurrentUser()) {
+            LOG.log(Level.INFO, "Signing out");
             cognitoUserPool.getCurrentUser().signOut();
 
             cognitoUserSession = null;
@@ -752,15 +714,4 @@ public class CognitoUserPoolsSignInProvider implements SignInProvider {
         }
     }
 
-    static boolean isBackgroundColorFullScreen() {
-        return isBackgroundColorFullScreenEnabled;
-    }
-
-    static int getBackgroundColor() {
-        return backgroundColor;
-    }
-
-    static String getFontFamily() {
-        return fontFamily;
-    }
 }

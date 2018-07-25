@@ -17,55 +17,65 @@
 
 package com.amazonaws.mobile.auth.userpools;
 
-import android.app.Activity;
-import android.content.Intent;
-import android.os.Bundle;
-import android.util.Log;
-import android.view.View;
-
-import com.amazonaws.mobile.auth.userpools.R;
+import com.amazonaws.mobile.auth.core.signin.SignInProvider;
+import com.gluonhq.charm.glisten.application.MobileApplication;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Activity to prompt for sign-up confirmation information.
  */
-public class SignUpConfirmActivity extends Activity {
-    /** Log tag. */
-    private static final String LOG_TAG = SignUpConfirmActivity.class.getSimpleName();
+public class SignUpConfirmActivity {
+    
+    private static final Logger LOG = Logger.getLogger(SignUpConfirmActivity.class.getName());
+
+    private static final String VIEW_NAME = "com.amazonaws.mobile.auth.userpools.SignUpConfirmView";
+    
     private SignUpConfirmView signUpConfirmView;
 
-    @Override
-    protected void onCreate(final Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_sign_up_confirm);
+    private final SignInProvider provider;
 
-        final String username = getIntent().getStringExtra(
-            CognitoUserPoolsSignInProvider.AttributeKeys.USERNAME);
-
-        signUpConfirmView = (SignUpConfirmView) findViewById(R.id.signup_confirm_view);
-        signUpConfirmView.getUserNameEditText().setText(username);
-        signUpConfirmView.getConfirmCodeEditText().requestFocus();
+    public SignUpConfirmActivity(SignInProvider provider) {
+        this.provider = provider;
+    }
+    
+    public void show(final String userName) {
+        if (MobileApplication.getInstance() != null) {
+            MobileApplication.getInstance().removeViewFactory(VIEW_NAME);
+            LOG.log(Level.FINE, "Creating SignUpConfirmView instance"); 
+            MobileApplication.getInstance().addViewFactory(VIEW_NAME, () -> {
+                signUpConfirmView = new SignUpConfirmView(SignUpConfirmActivity.this);
+                signUpConfirmView.setOnShown(e -> {
+                    signUpConfirmView.setUserName(userName);
+                });
+                return signUpConfirmView;
+            });
+            LOG.log(Level.FINE, "Switching to SignUpConfirmView");
+            GluonView.switchView(VIEW_NAME);
+        } else {
+            LOG.log(Level.WARNING, "Failed to create the SignUpConfirmView instance");
+        }
     }
 
     /**
      * Retrieve input and return to caller.
-     * @param view the Android View
      */
-    public void confirmAccount(final View view) {
+    public void confirmAccount() {
+        final String username = signUpConfirmView.getUserName();
+        final String verificationCode = signUpConfirmView.getConfirmCode();
 
-        final String username =
-            signUpConfirmView.getUserNameEditText().getText().toString();
-        final String verificationCode =
-            signUpConfirmView.getConfirmCodeEditText().getText().toString();
+        LOG.log(Level.FINE, "username = " + username);
+        LOG.log(Level.FINE, "verificationCode = " + verificationCode);
 
-        Log.d(LOG_TAG, "username = " + username);
-        Log.d(LOG_TAG, "verificationCode = " + verificationCode);
-
-        final Intent intent = new Intent();
-        intent.putExtra(CognitoUserPoolsSignInProvider.AttributeKeys.USERNAME, username);
-        intent.putExtra(CognitoUserPoolsSignInProvider.AttributeKeys.VERIFICATION_CODE, verificationCode);
-
-        setResult(RESULT_OK, intent);
-
-        finish();
+        final Map<String, String> result = new HashMap<>();
+        result.put(CognitoUserPoolsSignInProvider.AttributeKeys.USERNAME, username);
+        result.put(CognitoUserPoolsSignInProvider.AttributeKeys.VERIFICATION_CODE, verificationCode);
+        provider.handleActivityResult(CognitoUserPoolsSignInProvider.VERIFICATION_REQUEST_CODE, 0, result);
+        if (MobileApplication.getInstance() != null) {
+            MobileApplication.getInstance().switchToPreviousView();
+        }
     }
+    
 }

@@ -30,16 +30,6 @@ import java.util.HashMap;
 public final class AuthUIConfiguration implements Serializable {
 
     /**
-     * Key for Background Color.
-     */
-    static final String CONFIG_KEY_SIGN_IN_BACKGROUND_COLOR = "signInBackgroundColor";
-
-    /**
-     * Key for Resource Identifier of the Logo Image.
-     */
-    static final String CONFIG_KEY_SIGN_IN_IMAGE_RESOURCE_ID = "signInImageResId";
-
-    /**
      * Key for UserPools.
      */
     static final String CONFIG_KEY_ENABLE_USER_POOLS = "signInUserPoolsEnabled";
@@ -48,16 +38,6 @@ public final class AuthUIConfiguration implements Serializable {
      * Key for SignInButtons.
      */
     static final String CONFIG_KEY_SIGN_IN_BUTTONS = "signInButtons";
-
-    /**
-     * Key for global Font across all the SignIn views and its subviews.
-     */
-    static final String CONFIG_KEY_FONT_FAMILY = "fontFamily";
-
-    /**
-     * Key for Enabling background color full screen.
-     */
-    static final String CONFIG_KEY_FULL_SCREEN_BACKGROUND = "fullScreenBackgroundColor";
 
     /**
      * Key for ability to cancel the sign-in.
@@ -79,37 +59,6 @@ public final class AuthUIConfiguration implements Serializable {
     }
 
     /**
-     * Returns the resource identifier of the logo image if set by the user.
-     * Else, returns the resource identifier of the default logo image
-     * passed in.
-     *
-     * @param defaultResourceId The Resource identifier for the default logo image
-     * @return The resource identifier set in config or the default passed in
-     */
-    public int getSignInImageResourceId(final int defaultResourceId) {
-      final Integer resId = (Integer) config.get(CONFIG_KEY_SIGN_IN_IMAGE_RESOURCE_ID);
-      if (resId == null) {
-        return defaultResourceId;
-      }
-      return resId;
-    }
-
-    /**
-     * Returns the background color chosen by the user.
-     * Else, returns the default background color passed in.
-     *
-     * @param defaultBackgroundColor The Default Background color
-     * @return The background color set in config or the default passed in
-     */
-    public int getSignInBackgroundColor(final int defaultBackgroundColor) {
-      final Integer backgroundColor = (Integer) config.get(CONFIG_KEY_SIGN_IN_BACKGROUND_COLOR);
-      if (backgroundColor == null) {
-        return defaultBackgroundColor;
-      }
-      return backgroundColor;
-    }
-
-    /**
      * Checks if userpools is enabled by the user.
      * @return True if UserPools is enabled
      */
@@ -128,27 +77,6 @@ public final class AuthUIConfiguration implements Serializable {
      */
     public ArrayList<Class<? extends SignInButton>> getSignInButtons() {
         return (ArrayList) config.get(CONFIG_KEY_SIGN_IN_BUTTONS);
-    }
-
-    /**
-     * Gets the font family.
-     * @return The font family.
-     */
-    public String getFontFamily() {
-        return (String) config.get(CONFIG_KEY_FONT_FAMILY);
-    }
-
-    /**
-     * Gets the Full screen background enabled or not.
-     * @return True if full screen background is enabled.
-     */
-    public boolean isBackgroundColorFullScreen() {
-        Object fullScreenBackgroundColorEnabled = config.get(CONFIG_KEY_FULL_SCREEN_BACKGROUND);
-        if (fullScreenBackgroundColorEnabled != null) {
-            return (Boolean) fullScreenBackgroundColorEnabled;
-        } else {
-            return false;
-        }
     }
 
     public boolean getCanCancel() {
@@ -175,34 +103,10 @@ public final class AuthUIConfiguration implements Serializable {
     public static class Builder {
 
         /** Local object for storing the configuration. */
-        private final Map<String, Object> configuration = new HashMap<String, Object>();
+        private final Map<String, Object> configuration = new HashMap<>();
 
         /** Constructor. */
         public Builder() { }
-
-        /**
-         * The Resource Identifier for the logo image passed by the user
-         * is stored in the config map.
-         *
-         * @param logoResId The Resource identifier for the logo image
-         * @return builder
-         */
-        public Builder logoResId(final int logoResId) {
-            configuration.put(CONFIG_KEY_SIGN_IN_IMAGE_RESOURCE_ID, logoResId);
-            return this;
-        }
-
-        /**
-         * The Background color that is dislayed on the first half
-         * of the SignIn Screen.
-         *
-         * @param color The Background color
-         * @return builder
-         */
-        public Builder backgroundColor(final int color) {
-            configuration.put(CONFIG_KEY_SIGN_IN_BACKGROUND_COLOR, color);
-            return this;
-        }
 
         /**
          * Invoke this method in order to enable userpools.
@@ -225,35 +129,13 @@ public final class AuthUIConfiguration implements Serializable {
         public Builder signInButton(final Class<? extends SignInButton> signInButton) {
             ArrayList<Class<? extends SignInButton>> signInButtonList;
             if (configuration.get(CONFIG_KEY_SIGN_IN_BUTTONS) == null) {
-                signInButtonList = new ArrayList<Class<? extends SignInButton>>();
+                signInButtonList = new ArrayList<>();
                 signInButtonList.add(signInButton);
                 configuration.put(CONFIG_KEY_SIGN_IN_BUTTONS, signInButtonList);
             } else {
                 signInButtonList = (ArrayList) configuration.get(CONFIG_KEY_SIGN_IN_BUTTONS);
                 signInButtonList.add(signInButton);
             }
-            return this;
-        }
-
-        /**
-         * Invoke this method in order to pass in a custom font family.
-         *
-         * @param fontFamily The custom font family.
-         * @return builder
-         */
-        public Builder fontFamily(final String fontFamily) {
-            configuration.put(CONFIG_KEY_FONT_FAMILY, fontFamily);
-            return this;
-        }
-
-        /**
-         * Invoke this method in order to draw the background color full screen.
-         *
-         * @param isFullScreenBackgroundEnabled
-         * @return builder
-         */
-        public Builder isBackgroundColorFullScreen(final boolean isFullScreenBackgroundEnabled) {
-            configuration.put(CONFIG_KEY_FULL_SCREEN_BACKGROUND, isFullScreenBackgroundEnabled);
             return this;
         }
 

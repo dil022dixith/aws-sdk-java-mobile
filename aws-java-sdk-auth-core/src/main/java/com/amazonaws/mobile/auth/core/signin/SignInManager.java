@@ -231,16 +231,15 @@ public class SignInManager {
     /**
      * Call initializeSignInButton to initialize the logic for sign-in for a specific provider.
      *
-     * @param providerType the SignInProvider class.
+     * @param providerClass
      * @param buttonView the view for the button associated with this provider.
-     * @return the onClickListener for the button to be able to override the listener.
      */
-    public Runnable initializeSignInButton(final Class<? extends SignInProvider> providerClass,
+    public void initializeSignInButton(final Class<? extends SignInProvider> providerClass,
                                                        final Button buttonView) {
         final SignInProvider provider = findProvider(providerClass);
 
         // Initialize the sign in button with the identity manager's results adapter.
-        return provider.initializeSignInButton(buttonView, IdentityManager.getDefaultIdentityManager().getResultsAdapter());
+        provider.initializeSignInButton(buttonView, IdentityManager.getDefaultIdentityManager().getResultsAdapter());
     }
 
     private SignInProvider findProvider(final Class<? extends SignInProvider> providerClass) {
