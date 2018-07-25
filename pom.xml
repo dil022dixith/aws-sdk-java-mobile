@@ -67,9 +67,9 @@
     <module>aws-java-sdk-mobile-client</module>
     <module>aws-java-sdk-kms</module>
     <module>aws-java-sdk-s3</module>
-    <module>aws-android-sdk-cognitoidentityprovider</module>
-    <module>aws-android-sdk-auth-userpools</module>
-    <module>aws-android-sdk-auth-ui</module>
+    <module>aws-java-sdk-cognitoidentityprovider</module>
+    <module>aws-java-sdk-auth-userpools</module>
+    <module>aws-java-sdk-auth-ui</module>
   </modules>
 
   <developers>

@@ -4,8 +4,8 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.gluonhq</groupId>
   <artifactId>aws-java-sdk-auth-userpools</artifactId>
-  <name>AWS SDK for Java - AWS Cognito Userpools SignIn</name>
-  <description>The AWS Java SDK for Authentication - Cognito Userpools SignIn holds the client classes that are used for enabling communication with Cognito UserPools SignIn Provider</description>
+  <name>AWS SDK for Java Mobile - AWS Cognito Userpools SignIn</name>
+  <description>The AWS Java Mobile SDK for Authentication - Cognito Userpools SignIn holds the client classes that are used for enabling communication with Cognito UserPools SignIn Provider</description>
   <url>https://github.com/gluonhq/aws-sdk-java-mobile</url>
 
   <properties>

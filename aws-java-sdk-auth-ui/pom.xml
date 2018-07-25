@@ -4,8 +4,8 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.gluonhq</groupId>
   <artifactId>aws-java-sdk-auth-ui</artifactId>
-  <name>AWS SDK for Java - AWS Authentication UI</name>
-  <description>The AWS Java SDK for Authentication UI holds the client classes that are used for presenting the SignIn Screen with SignInButtons and Amazon Cognito UserPools UI</description>
+  <name>AWS SDK for Java Mobile - AWS Authentication UI</name>
+  <description>The AWS Java Mobile SDK for Authentication UI holds the client classes that are used for presenting the SignIn Screen with SignInButtons and Amazon Cognito UserPools UI</description>
   <url>https://github.com/gluonhq/aws-sdk-java-mobile</url>
 
   <properties>
