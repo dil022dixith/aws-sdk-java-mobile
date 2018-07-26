@@ -33,7 +33,7 @@ import java.util.logging.Logger;
 
 /**
  * This credentials provider is intended for Android applications. It offers the
- * ability to persist the Cognito identity id in {@link SharedPreferences}.
+ * ability to persist the Cognito identity id in {@link SettingsService}.
  * Furthermore, it caches session credentials so as to reduce the number of
  * network requests. This is the provider to use with a custom identity
  * provider, which should be an extension of AWSAbstractCognitoIdentityProvider.
@@ -96,7 +96,7 @@ public class CognitoCachingCredentialsProvider
     private final IdentityChangedListener listener = new IdentityChangedListener() {
         @Override
         public void identityChanged(String oldIdentityId, String newIdentityId) {
-            LOG.log(Level.FINE,  "Identity id is changed");
+            LOG.log(Level.INFO,  "Identity id is changed: " + newIdentityId);
             saveIdentityId(newIdentityId);
             clearCredentials();
         }
@@ -242,8 +242,8 @@ public class CognitoCachingCredentialsProvider
                     @Override
                     public Object get() {
                         throw new RuntimeException("Error accessing Settings Service"); 
-                    }
-                });
+                }
+            });
         
         initialize();
     }
@@ -481,7 +481,7 @@ public class CognitoCachingCredentialsProvider
     /**
      * Gets the Cognito identity id of the user. The first time when this method
      * is called, a network request will be made to retrieve a new identity id.
-     * After that it's saved in {@link SharedPreferences}. Please don't call it
+     * After that it's saved in {@link SettingsService}. Please don't call it
      * in the main thread.
      *
      * @return identity id of the user
@@ -649,7 +649,7 @@ public class CognitoCachingCredentialsProvider
     }
 
     /**
-     * Save the credentials to SharedPreferences
+     * Save the credentials to {@link SettingsService}.
      */
     private void saveCredentials(AWSSessionCredentials sessionCredentials,
             long time) {
@@ -664,13 +664,13 @@ public class CognitoCachingCredentialsProvider
 
     /**
      * clear cached identity id and credentials Save the Amazon Cognito Identity
-     * Id to SharedPreferences
+     * Id to {@link SettingsService}.
      */
     private void saveIdentityId(String identityId) {
         LOG.log(Level.FINE,  "Saving identity id to SharedPreferences");
         this.identityId = identityId;
 
-        prefs.store(namespace(ID_KEY), identityId);
+        prefs.store(namespace(ID_KEY), identityId == null ? "" : identityId);
     }
 
     @Override

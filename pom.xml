@@ -35,8 +35,6 @@
  <!--   <module>aws-android-sdk-apigateway-core</module>
     <module>aws-android-sdk-auth-google</module>
     <module>aws-android-sdk-auth-facebook</module>
-    <module>aws-android-sdk-auth-userpools</module>
-    <module>aws-android-sdk-auth-ui</module>
     <module>aws-android-sdk-autoscaling</module>
     <module>aws-android-sdk-cloudwatch</module>
     <module>aws-android-sdk-cognito</module>
@@ -69,6 +67,9 @@
     <module>aws-java-sdk-mobile-client</module>
     <module>aws-java-sdk-kms</module>
     <module>aws-java-sdk-s3</module>
+    <module>aws-java-sdk-cognitoidentityprovider</module>
+    <module>aws-java-sdk-auth-userpools</module>
+    <module>aws-java-sdk-auth-ui</module>
   </modules>
 
   <developers>
@@ -90,8 +91,8 @@
           <artifactId>maven-compiler-plugin</artifactId>
           <version>2.3</version>
           <configuration>
-            <source>1.6</source>
-            <target>1.6</target>
+            <source>1.8</source>
+            <target>1.8</target>
             <encoding>UTF-8</encoding>
             <forceJavacCompilerUse>true</forceJavacCompilerUse>
           </configuration>

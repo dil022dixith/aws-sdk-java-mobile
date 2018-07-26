@@ -27,7 +27,6 @@ public interface IdentityProvider {
     /**
      * Method called upon constructing an identity provider for it to handle its initialization.
      *
-     * @param context the context.
      * @param configuration the configuration.
      */
     void initialize(AWSConfiguration configuration);

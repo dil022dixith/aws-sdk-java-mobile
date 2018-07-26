@@ -18,6 +18,7 @@
 package com.amazonaws.mobile.auth.core.internal.util;
 
 import java.util.Optional;
+import javafx.application.Platform;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
 
@@ -34,7 +35,20 @@ public final class ViewHelper {
      */
     public static void showDialog(final String title, final String body) {
 
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        if (Platform.isFxApplicationThread()) {
+            createAlert(title, body);
+        } else {
+            Platform.runLater(new Runnable() {
+                @Override
+                public void run() {
+                    createAlert(title, body);
+                }
+            });
+        }
+    }
+
+    private static void createAlert(final String title, final String body) {
+        final Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle(title);
         alert.setContentText(body);
         alert.show();

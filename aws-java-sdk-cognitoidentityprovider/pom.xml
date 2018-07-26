@@ -1,0 +1,63 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.gluonhq</groupId>
+  <artifactId>aws-java-sdk-cognitoidentityprovider</artifactId>
+  <name>AWS SDK for Java Mobile - Amazon Cognito Identity Provider</name>
+  <version>2.6.19</version>
+  <description>The AWS Java Mobile SDK for Amazon Cognito Identity Provider module holds the client classes that are used for communicating with Amazon Cognito Identity Provider Service</description>
+  <url>https://github.com/gluonhq/aws-sdk-java-mobile</url>
+
+  <parent>
+    <groupId>com.gluonhq</groupId>
+    <artifactId>aws-java-sdk-pom</artifactId>
+    <version>2.6.19</version>
+  </parent>
+
+  <licenses>
+    <license>
+      <name>Amazon Software License</name>
+      <url>http://aws.amazon.com/asl/</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.gluonhq</groupId>
+      <artifactId>aws-java-sdk-core</artifactId>
+      <optional>false</optional>
+      <version>2.6.19</version>
+    </dependency>
+    <dependency>
+      <groupId>com.amazonaws</groupId>
+      <artifactId>aws-android-sdk-cognitoidentityprovider-asf</artifactId>
+      <optional>false</optional>
+      <version>1.0.0</version>
+    </dependency>
+    <dependency>
+        <groupId>com.gluonhq</groupId>
+        <artifactId>charm-down-plugin-settings</artifactId>
+        <version>3.8.0</version>
+    </dependency>
+    <dependency>
+        <groupId>com.gluonhq</groupId>
+        <artifactId>charm-down-plugin-device</artifactId>
+        <version>3.8.0</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

@@ -1,12 +1,11 @@
-<project
-  xmlns="http://maven.apache.org/POM/4.0.0"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.gluonhq</groupId>
-  <artifactId>aws-java-sdk-mobile-client</artifactId>
-  <packaging>jar</packaging>
-  <name>AWS SDK for Java Mobile - AWS Mobile Client</name>
-  <description>The AWS Java SDK for Mobile Client holds the client classes that are used for initializing the SDK and instantiating the SDK clients.</description>
+  <artifactId>aws-java-sdk-auth-ui</artifactId>
+  <name>AWS SDK for Java Mobile - AWS Authentication UI</name>
+  <description>The AWS Java Mobile SDK for Authentication UI holds the client classes that are used for presenting the SignIn Screen with SignInButtons and Amazon Cognito UserPools UI</description>
   <url>https://github.com/gluonhq/aws-sdk-java-mobile</url>
 
   <properties>
@@ -17,7 +16,6 @@
       UTF-8
     </project.reporting.outputEncoding>
   </properties>
-
 
   <parent>
     <groupId>com.gluonhq</groupId>
@@ -32,22 +30,13 @@
       <optional>false</optional>
       <version>2.6.19</version>
     </dependency>
-
-    <dependency>
-      <groupId>com.gluonhq</groupId>
-      <artifactId>aws-java-sdk-auth-ui</artifactId>
-      <optional>true</optional>
-      <version>2.6.19</version>
-    </dependency>
-
-<!--    <dependency>
+    <!--<dependency>
       <groupId>com.amazonaws</groupId>
       <artifactId>aws-android-sdk-auth-google</artifactId>
       <optional>true</optional>
       <version>2.6.19</version>
       <type>aar</type>
     </dependency>
-
     <dependency>
       <groupId>com.amazonaws</groupId>
       <artifactId>aws-android-sdk-auth-facebook</artifactId>
@@ -55,30 +44,29 @@
       <version>2.6.19</version>
       <type>aar</type>
     </dependency>-->
-
     <dependency>
       <groupId>com.gluonhq</groupId>
       <artifactId>aws-java-sdk-auth-userpools</artifactId>
       <optional>true</optional>
       <version>2.6.19</version>
     </dependency>
-
-    <dependency>
-      <groupId>com.gluonhq</groupId>
-      <artifactId>aws-java-sdk-core</artifactId>
-      <optional>true</optional>
-      <version>2.6.19</version>
-    </dependency>
-
-    <dependency>
-        <groupId>org.json</groupId>
-        <artifactId>json</artifactId>
-        <version>20180130</version>
-    </dependency>
   </dependencies>
 
   <build>
     <plugins>
+      <plugin>
+        <groupId>com.simpligility.maven.plugins</groupId>
+        <artifactId>android-maven-plugin</artifactId>
+        <version>4.5.0</version>
+        <extensions>true</extensions>
+        <configuration>
+          <sdk>
+            <platform>25</platform>
+            <buildTools>19.1.0</buildTools>
+          </sdk>
+        </configuration>
+      </plugin>
+
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
