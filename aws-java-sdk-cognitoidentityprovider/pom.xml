@@ -5,14 +5,14 @@
   <groupId>com.gluonhq</groupId>
   <artifactId>aws-java-sdk-cognitoidentityprovider</artifactId>
   <name>AWS SDK for Java Mobile - Amazon Cognito Identity Provider</name>
-  <version>2.6.19</version>
+  <version>2.6.19-b2</version>
   <description>The AWS Java Mobile SDK for Amazon Cognito Identity Provider module holds the client classes that are used for communicating with Amazon Cognito Identity Provider Service</description>
   <url>https://github.com/gluonhq/aws-sdk-java-mobile</url>
 
   <parent>
     <groupId>com.gluonhq</groupId>
     <artifactId>aws-java-sdk-pom</artifactId>
-    <version>2.6.19</version>
+    <version>2.6.19-b2</version>
   </parent>
 
   <licenses>
@@ -28,7 +28,7 @@
       <groupId>com.gluonhq</groupId>
       <artifactId>aws-java-sdk-core</artifactId>
       <optional>false</optional>
-      <version>2.6.19</version>
+      <version>2.6.19-b2</version>
     </dependency>
     <dependency>
       <groupId>com.amazonaws</groupId>

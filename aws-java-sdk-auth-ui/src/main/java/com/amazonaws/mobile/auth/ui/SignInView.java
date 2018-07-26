@@ -52,7 +52,7 @@ public class SignInView extends View {
     }
 
     /** String that represents the SDK Version. */
-    private static final String SDK_VERSION = "2.6.19";
+    private static final String SDK_VERSION = "2.6.19-b2";
 
     /** Common Prefix of the namespaces of different SignIn providers. */
     private static final String NAMESPACE_COMMON_PREFIX = "com.amazonaws.mobile.auth";
